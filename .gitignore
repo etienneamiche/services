@@ -1,0 +1,17 @@
+# Liste blanche : le dépôt `services` ne versionne que le harness racine.
+# Les autres dépôts sont clonés ici par scripts/pull-all.ps1 et restent invisibles.
+/*
+!/.gitignore
+!/.gitattributes
+!/.editorconfig
+!/STARTUP.md
+!/AGENTS.md
+!/CLAUDE.md
+!/.claude/
+!/.harness/
+!/scripts/
+!/docs/
+!/repos.yaml
+
+# Brouillons de /start-project (cadrage §9) : jamais versionnés ici
+/drafts/

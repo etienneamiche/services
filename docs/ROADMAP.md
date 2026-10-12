@@ -1,0 +1,254 @@
+# Roadmap — construction de l'écosystème `services`
+
+*Créée le 2026-10-11. Référence : [`cadrage.md`](cadrage.md).*
+
+## Règles de conduite
+
+- **Une phase à la fois.** On ne commence une phase que lorsque le **critère de sortie** de la précédente est atteint.
+- **Chaque phase se termine de la même façon :**
+  1. passage du doctor (dès qu'il existe, en phase 2) ;
+  2. une courte rétro : ce qui a coincé, ce qui change dans le cadrage ;
+  3. mise à jour de `cadrage.md` ;
+  4. ta validation.
+- **On teste sur du jetable avant le réel.** Un dépôt `harness-sandbox` sert de terrain d'essai jusqu'à la phase 5.
+- **La CI/CD vient à la fin** (phase 10). Avant, tout se vérifie en local, par scripts et par Pester.
+- **Les dépendances à la plateforme k3s** (déploiement, `feedback`, `services-map`) sont regroupées en phase 11. Elles attendent la phase 1 du homelab (doc 03), qui avance en parallèle.
+
+| Phase | Thème | Dépend de |
+|---|---|---|
+| 0 | Poste, racine, `STARTUP.md` | — |
+| 1 | Spike : valider les hypothèses Claude Code | 0 |
+| 2 | Harness cœur, hooks, doctor | 1 |
+| 3 | Conventions de code | 2 |
+| 4 | Process de travail : issues, Project, skills | 2, 3 |
+| 5 | `template-react`, `libs/ui`, thèmes, *playground* | 4 |
+| 6 | `template-dotnet`, `template-python`, secrets de dev | 5 |
+| 7 | `template-game-multi` | 6 |
+| 8 | Mises à jour et propagation | 6 |
+| 9 | Harness racine, architecte, `/start-project`, `/evolve`, `/integrate` | 8 |
+| 10 | CI/CD | 9 |
+| 11 | Ce qui dépend de la plateforme k3s | 10 + homelab phase 1 |
+
+---
+
+## Phase 0 — Poste, racine et `STARTUP.md`
+
+**Objectif.** Pouvoir reconstruire l'environnement de travail sur n'importe quel poste Windows, pour toi ou pour un autre dev.
+
+**Livrables**
+- **`STARTUP.md`** à la racine de `services`, de zéro jusqu'au premier `doctor` vert :
+  1. prérequis manuels : Windows 11, `winget`, un compte GitHub ;
+  2. installation de `git` et de `pwsh` 7 (deux commandes `winget`) ;
+  3. `git clone` de `services` ;
+  4. `scripts/setup-workstation.ps1` ;
+  5. connexion à `gh`, à faire toi-même (`gh auth login`) ;
+  6. `pull-all.ps1` ;
+  7. pour l'accès aux secrets : clé age du poste, puis `add-workstation-key.ps1`, lancé **depuis un poste qui a déjà accès** ;
+  8. vérification finale.
+- **`scripts/setup-workstation.ps1`**, **idempotent** (on peut le relancer sans risque), avec deux profils :
+  - `-Role dev` : outils de développement (`gh`, `uv`, `copier`, `gitleaks`, `codegraph`, `node`, `dotnet`, `docker`, `git-cliff`, Claude Code), **sans accès à l'infra** ;
+  - `-Role admin` : `dev` + `sops`, `age`, `kubectl`, `tofu`, Ansible (dans WSL Ubuntu, installé par `uv` sans `sudo`), génération de la clé age du poste.
+- `services` initialisé en dépôt Git, avec le `.gitignore` en liste blanche.
+- `repos.yaml` : `services` et `homelab` actifs, les autres dépôts en `planned`.
+- `scripts/pull-all.ps1`.
+- Dépôt **`homelab`** (privé) créé, `homelab-doc/` déplacé dans `homelab/docs/`.
+
+**Tests et critère de sortie**
+- `setup-workstation.ps1` lancé deux fois de suite : la seconde exécution ne change rien et ne casse rien.
+- `setup-workstation.ps1 -Check -Role admin` ne contient plus aucun `FAIL` sur le poste principal.
+- Après un commit dans `services`, `git status` ne montre aucun fichier des sous-dépôts.
+- `pull-all.ps1` clone `homelab` dans un dossier vide et signale correctement un dépôt modifié.
+
+**Décisions :** Ansible tourne dans WSL Ubuntu. Le profil `admin` est réservé au propriétaire, qui seul accède à `homelab` et aux secrets.
+
+---
+
+## Phase 1 — Spike : valider les hypothèses Claude Code
+
+**Objectif.** Vérifier, avant d'écrire le harness, tout ce que le cadrage suppose sur Claude Code.
+
+**Livrables**
+- Un hook de journalisation qui écrit le JSON brut de chaque événement.
+- `docs/spike-claude-code.md`, avec une réponse vérifiée à chaque question :
+  1. L'entrée des hooks contient-elle `agent_type` dans un subagent ? (C'est la base de `git-guard`.)
+  2. Que voit-on du paramètre `model` lors d'un appel à l'outil `Agent` ?
+  3. `CLAUDE_CODE_SUBAGENT_MODEL` écrase-t-il le modèle déclaré par un agent, ou `inherit` ?
+  4. Une session ouverte dans `services/<app>/` charge-t-elle aussi le `CLAUDE.md` parent ? Comment l'éviter ?
+  5. Un `@import` dans `AGENTS.md` fonctionne-t-il, et sur plusieurs niveaux ?
+  6. Les plugins déclarés dans le `settings.json` du projet (ponytail, LSP) s'installent-ils d'eux-mêmes ?
+  7. Quelle est la **latence d'un hook `pwsh`** ? Faut-il un dispatcher unique, ou garder un processus résident ?
+  8. Les hooks de ponytail, le hook global de codegraph et les nôtres cohabitent-ils sans conflit ?
+- **Essai de [claude-doctor](https://github.com/millionco/claude-doctor)** sur tes transcripts existants : les règles qu'il propose sont-elles utiles ? Si oui, il alimentera `/retro`.
+
+**Critère de sortie.** Les 8 questions ont une réponse vérifiée, le cadrage est corrigé en conséquence, et la décision sur claude-doctor est prise.
+
+---
+
+## Phase 2 — Harness cœur, hooks et doctor
+
+**Objectif.** Un harness installable, sans techno, dont chaque garde est testée.
+
+**Livrables**
+- Dépôt `harness` (template Copier) : `copier.yml`, le cœur, le **système de modules** (`module.json`), `manifest.json`.
+- `AGENTS.md` et `CLAUDE.md` du projet, avec les imports de `.harness/agents/core.md`.
+- Les subagents : `dev`, `reviewer`, `git-ops`, `architect`, `auditor`.
+- Les dispatchers PowerShell et toutes les règles de hooks (cadrage §6), avec les profils `minimal / standard / strict`.
+- La protection des secrets (cadrage §17) : permissions `deny`, `secret-guard`, hook Git `pre-commit` + gitleaks, `.gitignore`.
+- **La suite Pester** des autotests de hooks.
+- **`harness-doctor.ps1`**, niveaux poste, racine et dépôt, plus `-Deep`.
+- Dépôt `harness-sandbox`, généré par Copier.
+
+**Tests et critère de sortie**
+- Pester entièrement vert.
+- **Un scénario manuel joué dans `harness-sandbox`**, chaque ligne vérifiée :
+
+  | Essai | Résultat attendu |
+  |---|---|
+  | Commit depuis la session principale | Refusé |
+  | Appel d'un subagent `general-purpose` | Refusé |
+  | `git worktree add` | Refusé |
+  | Lecture de `.env` par `Read`, puis par `Get-Content` | Refusée dans les deux cas |
+  | Modification de `.eslintrc` | Bloquée |
+  | Commit d'un faux secret | Bloqué par gitleaks |
+  | `--no-verify` | Refusé |
+- Le doctor est vert sur le poste, la racine et le sandbox.
+- Release `harness` **v0.1.0**.
+
+---
+
+## Phase 3 — Conventions de code
+
+**Objectif.** Fixer les pratiques communes et celles de chaque stack, avant d'écrire les templates. C'est la question reportée lors du cadrage.
+
+**Déroulé.** Une session de travail par thème. Chaque décision est notée comme un ADR, puis traduite en `conventions.md` du module et en config d'outillage.
+
+| Session | Sujets |
+|---|---|
+| **Commun** | Nommage, structure d'un monorepo, taille d'une PR, messages de commit, doc (`ARCHITECTURE.md`, ADR), stratégie de test (pyramide, seuils), logs et observabilité, gestion des erreurs, i18n, accessibilité |
+| **React** | Vite, organisation des dossiers, routage, état, récupération des données, formulaires et validation, lint et format (ESLint + Prettier, ou Biome), tests (Vitest, Testing Library, Playwright), usage de shadcn et de `@marblestudio/ui` |
+| **.NET** | Style d'architecture (Minimal API, vertical slices…), EF Core et migrations, validation, gestion des erreurs (ProblemDetails), logs, analyseurs et `.editorconfig`, tests (xUnit, Testcontainers), `Directory.Build.props` |
+| **Python** | Framework (FastAPI ?), uv, ruff, typage (pyright), pytest, structure |
+| **Jeu multi** | Boucle de jeu, protocole de messages, autorité du serveur, tests |
+
+**Critère de sortie.** Les modules `core`, `react`, `dotnet` et `python` du harness contiennent leurs conventions et leurs configs de lint et de format. Release **v0.2.0**.
+
+---
+
+## Phase 4 — Process de travail : issues, Project et skills
+
+**Objectif.** Le circuit complet d'une idée jusqu'à la PR, **sans CI**.
+
+**Livrables**
+- Le GitHub Project unique, ses colonnes, les labels (`feature`, `bug`, `harness-update`, `infra`, `integration`, `from-users`), les modèles d'issue et de PR.
+- Les skills `/idea`, `/spec`, `/feature`, `/ship`, `/review`, `/release` (en local), `/retro` et `/doctor`.
+- Le format des commits `type(scope): … (#n)`, et git-cliff pour le changelog.
+
+**Tests et critère de sortie.** Dans `harness-sandbox`, **trois issues fictives** passent de `Idée` à `Fait`. On vérifie que :
+- chaque commit et chaque PR sont faits par `git-ops` (Haiku) ;
+- le code est écrit par `dev` (Opus) ;
+- la revue est faite par `reviewer` (Sonnet) ;
+- le board suit l'avancement.
+
+Release **v0.3.0**.
+
+---
+
+## Phase 5 — React, `libs/ui`, thèmes et *playground*
+
+**Objectif.** Le premier vrai projet, de la création au lancement en local.
+
+**Livrables**
+- `template-react` et le module `react` du harness.
+- Le monorepo `libs`, avec `@marblestudio/ui` : les thèmes `tech`, `app` et `spare`, les composants communs, le bouton de signalement (désactivé tant que `feedback` n'existe pas).
+- Le *playground* de thèmes, lancé en local (il passera sur GitHub Pages en phase 10).
+- `new-project.ps1`, dans sa version sans étape d'infra, avec `codegraph init`.
+- `launch.ps1`, à la racine et dans le projet.
+
+**Tests et critère de sortie**
+- Un projet « React seul » est généré, lancé et passe le doctor.
+- Une feature y est développée selon le circuit de la phase 4.
+- On change de thème dans le *playground*, et la variante exportée s'applique au projet.
+
+---
+
+## Phase 6 — .NET, Python et secrets de dev
+
+**Livrables**
+- `template-dotnet` et `template-python`, avec leurs modules du harness.
+- Les options `postgres` (Docker en local) et `auth`, avec auth désactivée en local.
+- **Les secrets de dev** : `secrets.dev.sops.yaml` injecté par `launch.ps1` via `sops exec-env`.
+- Les paquets `MarbleStudio.*` et `marblestudio-*` dans `libs`, encore publiés en local seulement.
+
+**Tests et critère de sortie.** Les combinaisons « .NET seul », « .NET + React + BDD », « … + auth » et « Python + React » sont générées, lancées et passent le doctor. **Aucun fichier de secret en clair** n'apparaît sur le disque pendant leur exécution.
+
+---
+
+## Phase 7 — Jeu multijoueur
+
+**Livrables.** `template-game-multi` : serveur SignalR, lobby et salles, client React avec canvas, contrats de messages partagés.
+
+**Critère de sortie.** Deux navigateurs jouent ensemble en local. Le projet passe le doctor.
+
+---
+
+## Phase 8 — Mises à jour et propagation
+
+**Livrables**
+- `harness-status.ps1`, `harness-sync.ps1` et `template-sync.ps1`.
+- Les `_migrations` de Copier.
+- `/upstream` et le hook `structural-watch`.
+- `audit.ps1`.
+
+**Tests et critère de sortie**
+- On publie une version de harness contenant une migration (renommage d'un fichier) et on la propage à **trois projets** : les PR sont correctes et la migration s'est appliquée.
+- Un bloc structurel modifié dans un projet remonte jusqu'au template par `/upstream`, puis redescend dans les autres projets.
+
+---
+
+## Phase 9 — Harness racine, architecte et démarrage de projet
+
+**Livrables**
+- Le harness racine (`kind: root`), avec les skills `/infra`, `/doctor` et `/audit-all`.
+- `build-catalog.ps1`, le catalogue, `rules.md` et les premiers ADR.
+- L'agent `architect` et `/start-project`, étapes 1 à 6 (l'étape 7 attend la phase 11).
+- `/evolve`.
+- `/integrate`, essayé sur **un de tes sites existants** (cadrage §19).
+
+**Tests et critère de sortie**
+- Un vrai projet est démarré par `/start-project`. On obtient : les propositions d'architecture et d'infra, la roadmap, et les issues avec leurs liens dans `ROADMAP.md`.
+- Un besoin non couvert déclenche bien `/evolve`.
+- Un site existant reçoit son rapport `INTEGRATION.md`.
+
+---
+
+## Phase 10 — CI/CD
+
+**Livrables**
+- Les workflows réutilisables dans `harness` : build, tests, lint, gitleaks, `harness-check` et doctor au niveau dépôt.
+- GitVersion et le gitflow des apps, avec les images publiées sur GHCR.
+- La publication de `libs` sur npm, PyPI et nuget.org en *trusted publishing*, et le *playground* sur GitHub Pages.
+- **La CI de `harness`** : génération de chaque archi, build, tests et Pester en `-Deep`.
+- Renovate (preset commun, tous les deux jours, fusion automatique des correctifs et des dépendances de dev).
+- `/release` complet : la PR de version dans `homelab`.
+
+**Critère de sortie**
+- Une release d'app produit son image et ouvre sa PR dans `homelab`.
+- Une release de `libs` est publiée sur les trois registres.
+- Une PR Renovate passe et est fusionnée automatiquement.
+- La CI de `harness` refuse une release qui casse une archi.
+
+---
+
+## Phase 11 — Ce qui dépend de la plateforme k3s
+
+*Attend que la phase 1 du homelab (docs 03 et 07) soit terminée.*
+
+**Livrables**
+- `/start-project` étapes 7 et 8 : PR d'infra et v0 déployée.
+- Le service `feedback` (Turnstile, limite de débit, contenu expurgé, GitHub App).
+- `services-map` et `/map-infra`.
+- Les wrappers `infra/*.ps1`.
+
+**Critère de sortie**
+- Un projet démarré par `/start-project` tourne sur le cluster.
+- Un signalement envoyé depuis cette app crée une issue expurgée sur son dépôt.

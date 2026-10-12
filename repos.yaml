@@ -1,0 +1,61 @@
+# Source de vérité de l'écosystème (cadrage §2).
+# status: active  → cloné et tenu à jour par scripts/pull-all.ps1
+# status: planned → pas encore créé sur GitHub, ignoré par les scripts
+owner: etienneamiche
+
+repos:
+  - name: services
+    kind: root
+    path: .
+    visibility: public
+    status: active
+
+  - name: homelab
+    kind: infra
+    visibility: private
+    status: active
+
+  - name: harness
+    kind: harness
+    visibility: public
+    status: planned        # phase 2
+
+  - name: harness-sandbox
+    kind: sandbox
+    visibility: public
+    status: planned        # phase 2
+
+  - name: template-react
+    kind: template
+    visibility: public
+    status: planned        # phase 5
+
+  - name: libs
+    kind: libs
+    visibility: public
+    status: planned        # phase 5
+
+  - name: template-dotnet
+    kind: template
+    visibility: public
+    status: planned        # phase 6
+
+  - name: template-python
+    kind: template
+    visibility: public
+    status: planned        # phase 6
+
+  - name: template-game-multi
+    kind: template
+    visibility: public
+    status: planned        # phase 7
+
+  - name: feedback
+    kind: app
+    visibility: public
+    status: planned        # phase 11
+
+  - name: services-map
+    kind: app
+    visibility: private
+    status: planned        # phase 11
