@@ -50,6 +50,13 @@ foreach ($repo in $config.repos | Where-Object { $_.status -eq 'active' }) {
     # 2. Présent : on regarde avant de toucher.
     if (-not (git -C $path remote)) { Add-Row $repo 'local' 'aucun remote'; continue }
 
+    # Un clone fait avant `gh auth login` est en HTTPS : on le passe en SSH (STARTUP.md §6).
+    $url = git -C $path remote get-url origin
+    if ($url -match '^https://github\.com/(.+?)(\.git)?$') {
+        $sshUrl = "git@github.com:$($Matches[1]).git"
+        if ($PSCmdlet.ShouldProcess($repo.name, "remote → $sshUrl")) { git -C $path remote set-url origin $sshUrl }
+    }
+
     if (-not $NoFetch) {
         git -C $path fetch --quiet --prune 2>$null
         if ($LASTEXITCODE -ne 0) { Add-Row $repo 'FAIL' 'échec du fetch'; continue }

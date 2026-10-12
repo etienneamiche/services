@@ -157,7 +157,22 @@ else { Add-Result 'git longpaths' 'WARN' 'git config --global core.longpaths tru
 if (Get-Command gh -ErrorAction SilentlyContinue) {
     gh auth status *> $null
     if ($LASTEXITCODE -eq 0) { Add-Result 'gh auth' 'OK' (gh api user --jq .login) }
-    else { Add-Result 'gh auth' 'FAIL' 'gh auth login -s project (à faire soi-même)' }
+    else { Add-Result 'gh auth' 'FAIL' 'gh auth login -p ssh -s project (à faire soi-même)' }
+
+    # Git passe par SSH : aucun identifiant HTTPS à stocker.
+    if ((gh config get git_protocol) -ne 'ssh' -and -not $Check -and $PSCmdlet.ShouldProcess('gh git_protocol', 'ssh')) {
+        gh config set git_protocol ssh
+    }
+    if ((gh config get git_protocol) -eq 'ssh') { Add-Result 'gh protocole' 'OK' 'ssh' }
+    else { Add-Result 'gh protocole' 'WARN' 'gh config set git_protocol ssh' }
+}
+
+$sshTest = ssh -T -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new git@github.com 2>&1 | Out-String
+if ($sshTest -match 'successfully authenticated') { Add-Result 'ssh github' 'OK' 'clé reconnue' }
+else { Add-Result 'ssh github' 'FAIL' 'aucune clé SSH reconnue par GitHub (voir STARTUP.md §6)' }
+
+if ((git config --global credential.helper) -eq 'store') {
+    Add-Result 'git credentials' 'WARN' 'credential.helper=store garde un jeton en clair dans ~/.git-credentials (voir STARTUP.md §6)'
 }
 
 # --- 4. Admin : clé age et Ansible ------------------------------------------------

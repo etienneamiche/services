@@ -28,7 +28,7 @@ Fermer le terminal, puis en ouvrir un **PowerShell 7** (`pwsh`). Toutes les comm
 ## 3. Cloner `services`
 
 ```powershell
-git clone https://github.com/<compte>/services.git C:\repo\services
+git clone https://github.com/<compte>/services.git C:\repo\services   # dépôt public : pas besoin d'être connecté
 cd C:\repo\services
 ```
 
@@ -78,13 +78,19 @@ git config --global core.longpaths true
 
 ## 6. Se connecter à GitHub
 
+Git passe par **SSH**. Aucun identifiant HTTPS n'est stocké sur le poste.
+
 À faire **soi-même**, de façon interactive :
 
 ```powershell
-gh auth login -s project
+gh auth login -p ssh -s project
 ```
 
-Le droit `project` sert au GitHub Project commun à tous les dépôts.
+- `-p ssh` règle `gh` pour cloner en SSH. S'il n'existe pas encore de clé dans `~/.ssh`, `gh` propose d'en créer une et de l'envoyer sur GitHub.
+- Le droit `project` sert au GitHub Project commun à tous les dépôts.
+- Vérification : `ssh -T git@github.com` doit répondre `Hi <compte>!`.
+
+Si `git config --global credential.helper` vaut `store`, un jeton est gardé en clair dans `~/.git-credentials`. Avec SSH, il ne sert plus : retirer le réglage (`git config --global --unset credential.helper`), supprimer le fichier, et révoquer le jeton sur GitHub (`Settings` → `Developer settings`).
 
 Ensuite, renseigner `owner:` dans `repos.yaml` s'il est vide (`gh api user --jq .login` donne le nom du compte).
 
