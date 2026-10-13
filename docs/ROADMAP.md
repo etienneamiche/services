@@ -18,7 +18,7 @@
 |---|---|---|
 | 0 ✅ | Poste, racine, `STARTUP.md` | — |
 | 1 ✅ | Spike : valider les hypothèses Claude Code | 0 |
-| 2 | Harness cœur, hooks, doctor | 1 |
+| 2 ✅ | Harness cœur, hooks, doctor | 1 |
 | 3 | Conventions de code | 2 |
 | 4 | Process de travail : issues, Project, skills | 2, 3 |
 | 5 | `template-react`, `libs/ui`, thèmes, *playground* | 4 |
@@ -83,7 +83,7 @@
 
 ---
 
-## Phase 2 — Harness cœur, hooks et doctor
+## Phase 2 — Harness cœur, hooks et doctor ✅
 
 **Objectif.** Un harness installable, sans techno, dont chaque garde est testée.
 
@@ -112,6 +112,18 @@
   | `--no-verify` | Refusé |
 - Le doctor est vert sur le poste, la racine et le sandbox.
 - Release `harness` **v0.1.0**.
+
+**Bilan (2026-10-14)**
+- **`harness` v0.1.1 publié** ([dépôt](https://github.com/etienneamiche/harness)) et installé dans `harness-sandbox` : doctor à 0 échec, 0 avertissement.
+- **Autotests Pester** : 88 tests verts (83 pour `kind=root`, où les 5 tests propres au gitflow sont ignorés). `tools/test.ps1` génère chaque type de projet, lance le doctor `-Deep` et fait le premier commit.
+- **Scénario manuel** joué par une vraie session Claude headless : les 7 essais du tableau sont refusés comme prévu, et le commit légitime de `git-ops` passe.
+- **Doctor racine** (`scripts/harness-doctor.ps1`) : poste, racine et dépôts au vert. **`add-workstation-key.ps1`** testé avec un vrai chiffrement SOPS : ajout, déchiffrement, retrait avec rotation de la clé de données, refus de retirer la dernière clé.
+- **Problèmes trouvés et corrigés en route** :
+  - le premier commit était refusé par gitleaks, qui prenait les empreintes du manifeste pour des clés : d'où la v0.1.1 ;
+  - un faux positif de `git-guard` sur `git commit -F -` avec heredoc ;
+  - le motif `path_regex` de sops ne reconnaissait pas les chemins Windows ;
+  - au retrait d'une clé, `sops rotate` seul gardait l'accès du poste retiré ;
+  - la latence (~390 ms par hook) a conduit à ne plus brancher les hooks sur `Read`.
 
 ---
 

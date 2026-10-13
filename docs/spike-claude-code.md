@@ -29,7 +29,7 @@
 Un hook `pwsh` coûte ~250 ms par déclenchement. Sur `PreToolUse` et `PostToolUse` pour tous les outils, une tâche de 100 appels perdrait près d'une minute. Trois mesures, par ordre d'application :
 
 1. **Des matchers ciblés**, pour ne déclencher les hooks que sur les outils concernés :
-   - `PreToolUse` sur `Agent|Bash|PowerShell|Read|Edit|Write` ;
+   - `PreToolUse` sur `Agent|Bash|PowerShell|Edit|Write` (sans `Read`, couvert nativement par `permissions.deny` : décision prise en phase 2) ;
    - `PostToolUse` sur `Edit|Write` seulement ;
    - `Stop` une fois par tour.
 

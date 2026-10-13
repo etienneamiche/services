@@ -25,7 +25,9 @@
 param(
     [ValidateSet('dev', 'admin')] [string] $Role = 'dev',
     [switch] $Check,
-    [switch] $Upgrade
+    [switch] $Upgrade,
+    # Renvoie les résultats (objets) au lieu de les afficher : utilisé par harness-doctor.ps1.
+    [switch] $PassThru
 )
 
 $ErrorActionPreference = 'Stop'
@@ -206,6 +208,7 @@ if ($Role -eq 'admin') {
 }
 
 # --- Bilan ------------------------------------------------------------------------
+if ($PassThru) { return $results }
 $results | Format-Table -AutoSize | Out-Host
 $failed = @($results | Where-Object Etat -eq 'FAIL').Count
 $warned = @($results | Where-Object Etat -eq 'WARN').Count

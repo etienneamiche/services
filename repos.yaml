@@ -23,12 +23,12 @@ repos:
   - name: harness
     kind: harness
     visibility: public
-    status: planned        # phase 2
+    status: active
 
   - name: harness-sandbox
     kind: sandbox
     visibility: public
-    status: planned        # phase 2
+    status: active
 
   - name: template-react
     kind: template

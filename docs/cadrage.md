@@ -195,14 +195,16 @@ services/docs/catalog/
 ## 6. Les hooks (PowerShell)
 
 **Architecture**, validée par le spike ([`spike-claude-code.md`](spike-claude-code.md)) :
-- **Un dispatcher par événement**, qui enchaîne les vérifications dans un seul processus, pour deux raisons :
-  - un hook `pwsh` coûte **~250 ms** à chaque déclenchement ;
+- **Un point d'entrée unique** (`.harness/hooks/dispatch.ps1 <Événement>`), qui enchaîne les règles dans un seul processus, pour deux raisons :
+  - lancer `pwsh` coûte ~220 ms à chaque déclenchement ;
   - les hooks d'un même événement tournent **en parallèle**, et leurs écritures partagées se corrompent.
+- **Une règle par fichier, rangée par événement** (`rules/PreToolUse/git-guard.ps1`…). Le dispatcher ne charge que les règles de l'événement en cours, et découvre aussi celles des modules (`.harness/modules/<nom>/rules/<Événement>/`).
 - **Des matchers ciblés**, pour ne payer que là où une règle s'applique :
-  - `PreToolUse` sur `Agent|Bash|PowerShell|Read|Edit|Write` ;
+  - `PreToolUse` sur `Agent|Bash|PowerShell|Edit|Write` ;
   - `PostToolUse` sur `Edit|Write` seulement ;
-  - aucun hook sur `Glob`, `Grep` ou codegraph.
-- **Si la latence gêne à l'usage**, le dispatcher sera compilé en exécutable .NET natif (AOT).
+  - **rien sur `Read`**, l'outil le plus appelé : ses accès aux secrets sont bloqués nativement par `permissions.deny` ;
+  - rien non plus sur `Glob`, `Grep` ou codegraph.
+- **Latence mesurée (v0.1)** : ~390 ms par déclenchement, dont ~220 ms de démarrage de `pwsh`. Si la gêne est réelle à l'usage, le dispatcher sera compilé en exécutable .NET natif (AOT).
 - **Entrée et sortie en UTF-8 forcé** dans chaque hook, sinon les accents du JSON sont corrompus.
 - **Un refus** se fait par un JSON `permissionDecision: "deny"` avec sa raison, et le code de sortie 0.
 - **L'appelant se reconnaît** à `agent_type` et `agent_id`, absents dans la session principale.
@@ -502,7 +504,7 @@ Défense en profondeur. Aucune couche ne suffit seule, mais ensemble elles couvr
 | Couche | Ce qu'elle empêche | Remarque |
 |---|---|---|
 | **1. Pas de secret en clair sur le disque** | Il n'y a rien à lire. Les secrets de dev sont dans un `secrets.dev.sops.yaml` chiffré, dans le dépôt. `launch.ps1` les injecte en variables d'environnement **du seul processus lancé** (`sops exec-env`). Pas de `.env`, pas de `dotnet user-secrets` | La protection la plus forte : un fichier qui n'existe pas ne fuit pas |
-| **2. Permissions Claude (`deny`)** | `Read` et `Edit` sur `.env*`, `*.pem`, `*.key`, `*.pfx`, `secrets.json`, `appsettings.*.Local.json`, `%APPDATA%\Microsoft\UserSecrets\`, et les clés age | Bloquant et natif, mais ne couvre pas une lecture passée par le shell |
+| **2. Permissions Claude (`deny`)** | `Read` sur `.env` et ses variantes (sauf `.env.example`), `*.pem`, `*.key`, `*.pfx`, `secrets.json`, `*.dec.yaml`, `~/.ssh`, `~/.git-credentials`, `%APPDATA%\Microsoft\UserSecrets\`, et les clés age | Bloquant, natif et sans latence. S'applique aussi à `Grep` et `Glob`, mais pas à une lecture passée par le shell |
 | **3. Hook `secret-guard`** | La lecture de ces chemins par une commande shell (`cat`, `type`, `Get-Content`, `gc`…), `sops -d` vers la sortie standard, l'affichage des variables d'environnement, et les jetons collés dans un prompt | Au mieux de ses moyens : une commande détournée peut passer. D'où les couches 1 et 4 |
 | **4. Hook Git `pre-commit` + gitleaks** | Tout commit contenant un secret, **qu'il vienne de l'agent ou de toi**. Installé par `core.hooksPath=.harness/githooks` | `git-guard` interdit `--no-verify` à l'agent |
 | **5. `git-guard` à l'indexation** | `git add -A` et `git add .` sont refusés à l'agent. `git-ops` ajoute les fichiers un par un, et le hook vérifie leur nom avant le commit | |

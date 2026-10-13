@@ -109,8 +109,13 @@ Le script clone ce qui manque et met à jour le reste par `pull --ff-only`. Il n
 `setup-workstation.ps1 -Role admin` génère une **clé age propre à ce poste**, dans `%APPDATA%\sops\age\keys.txt`, et affiche sa clé publique.
 
 - **La clé privée ne quitte jamais le poste.** Elle ne se copie pas, ne se commite pas, ne s'envoie pas.
-- Pour que ce poste puisse déchiffrer les secrets, **un poste qui a déjà l'accès** ajoute la clé publique à `homelab/.sops.yaml`, puis rechiffre les secrets (`scripts/add-workstation-key.ps1`, livré en phase 2).
-- Pour retirer un poste perdu ou abandonné : on enlève sa clé publique de `.sops.yaml` et on rechiffre.
+- Pour que ce poste puisse déchiffrer les secrets, **un poste qui a déjà l'accès** lance :
+  ```powershell
+  ./scripts/add-workstation-key.ps1 -PublicKey age1… -Name portable
+  ```
+  Le script ajoute la clé à `homelab/.sops.yaml`, rechiffre chaque secret pour le nouvel ensemble de clés, puis il reste à commiter le résultat dans `homelab` par une PR. Au tout premier usage, il crée `.sops.yaml`.
+- **Pour retirer un poste** perdu ou abandonné : même commande, avec `-Remove`. Le script retire la clé, puis **change la clé de données** de chaque secret (`sops rotate`) : un poste retiré qui avait déjà déchiffré un secret ne peut pas lire les versions suivantes. Il refuse de retirer la dernière clé.
+- L'historique Git garde les anciennes versions chiffrées. Si un poste est compromis, il faut aussi **changer les secrets eux-mêmes**.
 
 ### Ansible
 
@@ -122,7 +127,8 @@ Ansible ne tourne pas nativement sous Windows : il tourne dans **WSL Ubuntu**.
 ## 9. Vérification finale
 
 ```powershell
-./scripts/setup-workstation.ps1 -Check -Role dev    # ou admin
+./scripts/harness-doctor.ps1          # poste, racine, et chaque dépôt équipé du harness
+./scripts/harness-doctor.ps1 -Fix     # répare ce qui peut l'être sans risque (plugins, index codegraph…)
 ```
 
-Le poste est prêt quand ce bilan ne contient plus aucun `FAIL`. Le doctor complet (`harness-doctor.ps1`) arrive en phase 2 et remplacera cette étape.
+Le poste est prêt quand le bilan ne contient plus aucun `FAIL`. `-Deep` lance aussi les autotests des hooks de chaque dépôt, `-Offline` évite tout accès réseau.
