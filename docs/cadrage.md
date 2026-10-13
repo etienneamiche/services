@@ -28,7 +28,10 @@ Un seul point d'entrée, `services/`, pour **démarrer, intégrer, développer, 
 | `template-game-multi` | Public | Template Copier d'un jeu multijoueur : serveur .NET SignalR (lobby, salles, état côté serveur) + client React (boucle de jeu, canvas) + contrats de messages partagés | Tags semver sur `main` |
 | `libs` | Public | **Monorepo** des bibliothèques communes, publiées sur **nuget.org, npmjs et PyPI**. Contient aussi les thèmes et le *playground* de thèmes (§11) | Un tag par paquet sur `main` |
 | `feedback` | Public | Service central de signalement de bugs et de demandes de features (§10) | GitVersion |
-| `<app>` | Public | Un monorepo par application ou par jeu | GitVersion (gitflow) |
+| `project-ideas` | **Privé** | Les idées de projets : une liste centrale avec un statut, et une page par idée quand elle mûrit (§9 bis) | — (`main` seul) |
+| `<app>` | Public | **Une app = un dépôt monorepo** : front, back (s'il y en a un), `deploy/` et docs dans le même dépôt (§3) | GitVersion (gitflow) |
+
+**Règle : une app = un monorepo.** Le front, le back, la config de déploiement et la doc d'une app vivent ensemble, avec **une seule version** pour l'ensemble (doc 07 §5). On ne crée jamais un dépôt par couche (`factures-front`, `factures-api`…).
 
 **Branche par défaut : `main` partout.** Les apps ajoutent `develop`, `release/*` et `hotfix/*` (gitflow du doc 07). Le harness, les templates et `libs` vivent sur `main` seul.
 
@@ -72,13 +75,15 @@ repos:
 
 ## 3. Composer un projet : templates et harness
 
-Toutes les archis se fabriquent **par composition**. Copier applique plusieurs templates au même dépôt, chacun avec son propre fichier de réponses, donc sa propre version :
+Toutes les archis se fabriquent **par composition, dans un seul dépôt**. Copier applique plusieurs templates au même monorepo, chacun avec son propre fichier de réponses, donc sa propre version :
 
 ```
-<app>/
+<app>/                             ← UN dépôt GitHub, UNE version (tag vX.Y.Z)
 ├── .copier-answers.harness.yml    ← version du harness
-├── frontend/                      ← template-react
-├── backend/                       ← template-dotnet ou template-python
+├── frontend/                      ← template-react        (absent si l'app n'a pas de front)
+├── backend/                       ← template-dotnet ou template-python (absent si pas de back)
+├── deploy/                        ← Chart.yaml + values.yaml (dépend du chart générique)
+├── docs/
 └── …
 ```
 
@@ -105,7 +110,7 @@ L'auth et la base sont des **options**, pas des archis à part. Le jeu multijoue
 
 ```
 <app>/
-├── CLAUDE.md                 → une seule ligne : @AGENTS.md
+├── CLAUDE.md                 → une seule ligne : @AGENTS.md (AGENTS.md serait aussi lu sans lui)
 ├── AGENTS.md                 → spécificités du projet + imports :
 │                               @.harness/agents/core.md
 │                               @.harness/agents/<techno>.md   (selon l'archi)
@@ -119,7 +124,8 @@ L'auth et la base sont des **options**, pas des archis à part. Le jeu multijoue
 │   ├── structural.txt        → liste des « blocs structurels » (§8.3)
 │   └── manifest.json         → empreinte SHA-256 des fichiers du harness
 ├── .claude/
-│   ├── settings.json         → hooks, permissions, modèle, env, plugins (ponytail…)
+│   ├── settings.json         → hooks, permissions, modèle, env, plugins (ponytail…),
+│   │                           claudeMdExcludes (instructions de la racine services)
 │   ├── agents/*.md           → subagents à modèle imposé (§5)
 │   └── skills/*/SKILL.md     → les workflows (§7)
 ├── scripts/                  → launch.ps1, test.ps1, lint.ps1, build.ps1
@@ -134,7 +140,9 @@ Une mise à jour du harness ne touche jamais `AGENTS.md`, donc jamais de conflit
 
 Le **harness racine** de `services/` est généré par le même dépôt `harness`, avec `kind: root`.
 
-**Plugins déclarés dans `settings.json`**, donc présents dans chaque projet : **ponytail**, les LSP selon la techno (`csharp-lsp`, `typescript-lsp`, `pyright-lsp`), [dotnet/skills](https://github.com/dotnet/skills) pour .NET, et le skill shadcn pour React.
+**Les instructions de la racine ne fuient pas dans les projets.** Claude Code charge les `CLAUDE.md` des dossiers parents. Une session ouverte dans `services/<app>/` lirait donc les instructions d'infra de la racine. Le `settings.json` de chaque projet les exclut avec `claudeMdExcludes: ["**/services/CLAUDE.md", "**/services/AGENTS.md"]`. Le dossier racine doit donc s'appeler `services`.
+
+**Les plugins** sont présents dans chaque projet : **ponytail**, les LSP selon la techno (`csharp-lsp`, `typescript-lsp`, `pyright-lsp`), [dotnet/skills](https://github.com/dotnet/skills) pour .NET, et le skill shadcn pour React. Les déclarer dans `settings.json` ne suffit pas à les installer : ils sont installés **par script**, avec `claude plugin install <plugin> --scope project`. C'est le rôle de `new-project.ps1`, de `pull-all.ps1` sur un nouveau poste, et de `harness-doctor -Fix`.
 
 ---
 
@@ -144,11 +152,18 @@ Le **harness racine** de `services/` est généré par le même dépôt `harness
 |---|---|---|
 | (session principale) | **opus** | Conversation, orchestration |
 | `dev` | **opus** | Implémentation |
-| `reviewer` | **sonnet** | Revue de code |
-| `git-ops` | **haiku** | Commits, push, PR, changelog, labels, issues |
-| `architect` | **opus** | Spécification, architecture, roadmap |
+| `architect` | **opus** | Spécification, conception d'architecture, roadmap |
 | `auditor` | **opus** | Audit, analyse d'intégration |
+| `explorer` | **haiku** | Explorer le code (codegraph d'abord) et rapporter ce qui a été trouvé à la session principale |
+| `linter` | **haiku** | Nettoyer le lint : lancer les formateurs et linters du projet, corriger les avertissements restants |
+| `git-ops` | **haiku** | Messages de commit, commits, push, PR, changelog, labels, issues |
+| `reviewer` | **haiku** | Revue d'un diff |
+| `cartographer` | **haiku** | Résumer l'architecture existante d'un projet ou de l'écosystème (`ARCHITECTURE.md`, catalogue) |
 | impeccable (4 agents, `inherit`) | → opus | Autorisés, puisque la session est en Opus |
+
+**La règle :** Opus conçoit et écrit le code. Haiku fait tout ce qui est mécanique ou de la lecture : explorer, nettoyer, écrire un message, relire un diff, résumer. Sonnet n'a pas de rôle attitré.
+
+L'agent intégré `Explore` n'est pas sur la liste blanche de `model-guard` : c'est `explorer` qui le remplace, avec son modèle imposé.
 
 ### L'architecte connaît tout l'écosystème
 
@@ -171,20 +186,32 @@ services/docs/catalog/
 
 `build-catalog.ps1` est relancé par `pull-all.ps1` et à chaque release du harness, d'un template ou de `libs`. L'architecte raisonne donc toujours sur l'état réel, pas sur un souvenir.
 
-**À vérifier pendant le spike.** La variable `CLAUDE_CODE_SUBAGENT_MODEL=haiku` (reprise d'ECC) doit servir de filet de sécurité pour les subagents sans modèle. Mais si elle écrase aussi les modèles déclarés dans les fichiers d'agents ou `inherit`, on la retire.
+**Filet de sécurité : `CLAUDE_CODE_SUBAGENT_MODEL=haiku`.** Cette variable, posée dans `settings.json` → `env`, ne s'applique qu'aux agents **sans modèle déclaré**, comme `general-purpose`. Elle n'écrase ni un modèle déclaré ni `inherit`.
+
+**Attention :** un paramètre `model` passé lors de l'appel d'un agent écrase son modèle déclaré. C'est ce que bloque `model-guard`. *(Vérifié pendant le spike : [`spike-claude-code.md`](spike-claude-code.md).)*
 
 ---
 
 ## 6. Les hooks (PowerShell)
 
-**Architecture (reprise d'ECC).**
-- **Un dispatcher par événement**, qui enchaîne les vérifications, plutôt qu'un script par règle : chaque lancement de `pwsh` coûte du temps.
+**Architecture**, validée par le spike ([`spike-claude-code.md`](spike-claude-code.md)) :
+- **Un dispatcher par événement**, qui enchaîne les vérifications dans un seul processus, pour deux raisons :
+  - un hook `pwsh` coûte **~250 ms** à chaque déclenchement ;
+  - les hooks d'un même événement tournent **en parallèle**, et leurs écritures partagées se corrompent.
+- **Des matchers ciblés**, pour ne payer que là où une règle s'applique :
+  - `PreToolUse` sur `Agent|Bash|PowerShell|Read|Edit|Write` ;
+  - `PostToolUse` sur `Edit|Write` seulement ;
+  - aucun hook sur `Glob`, `Grep` ou codegraph.
+- **Si la latence gêne à l'usage**, le dispatcher sera compilé en exécutable .NET natif (AOT).
+- **Entrée et sortie en UTF-8 forcé** dans chaque hook, sinon les accents du JSON sont corrompus.
+- **Un refus** se fait par un JSON `permissionDecision: "deny"` avec sa raison, et le code de sortie 0.
+- **L'appelant se reconnaît** à `agent_type` et `agent_id`, absents dans la session principale.
 - **Profils** `minimal | standard | strict`, choisis par `HARNESS_HOOK_PROFILE`. On peut couper une règle précise avec `HARNESS_DISABLED_HOOKS`.
 - **Les gardes de sécurité échouent fermé** (erreur = refus). **Les hooks d'information échouent ouvert.**
 
 | Règle | Événement | Effet | Origine |
 |---|---|---|---|
-| `model-guard` | `PreToolUse` sur `Agent` | **Refuse** tout `subagent_type` hors liste blanche (y compris `general-purpose`), et tout paramètre `model` différent de celui imposé | maison |
+| `model-guard` | `PreToolUse` sur `Agent` | **Refuse** tout `subagent_type` hors liste blanche (y compris `general-purpose`), et **tout appel qui contient un paramètre `model`**, puisqu'il écraserait le modèle de l'agent | maison |
 | `git-guard` | `PreToolUse` sur `Bash`/`PowerShell` | Refuse `git commit`, `git push`, `gh pr *`, `gh issue create` et `gh release` **hors du subagent `git-ops`**. Refuse aussi `git worktree`, `rebase -i`, `push --force`, `--no-verify`, le push direct sur `main`/`develop`, la fusion d'une PR `homelab`, et un message de commit sans `(#n)` | maison + ECC |
 | `destructive-guard` | `PreToolUse` sur `Bash`/`PowerShell` | Au premier essai de `rm -rf`, `git reset --hard`, `tofu destroy`, `kubectl delete` ou `DROP TABLE` : refus. L'agent doit lister ce qui sera touché, donner un plan de retour arrière et citer ta demande. Le second essai passe | ECC |
 | `config-protection` | `PreToolUse` sur `Edit`/`Write` | Bloque la modification des configs de lint et de format, de `.harness/**`, `.claude/settings.json`, `.github/workflows/**` et `.sops.yaml`. On les change par `/upstream` | ECC, étendu |
@@ -195,10 +222,7 @@ services/docs/catalog/
 | `session-info` | `SessionStart` | Affiche la version du harness, prévient si elle est en retard, et signale un index codegraph absent | maison |
 | (permissions) | `settings.json` | `deny` sur `EnterWorktree` | maison |
 
-**À vérifier pendant le spike :**
-- le champ `agent_type` dans l'entrée des hooks, sur lequel repose `git-guard` ;
-- le chargement des `CLAUDE.md` parents depuis `services/<app>/` ;
-- la cohabitation avec les hooks Node.js de ponytail et le hook global de codegraph.
+Nos hooks cohabitent sans erreur avec le hook global de codegraph et ceux de ponytail. Leurs latences s'additionnent.
 
 ---
 
@@ -223,13 +247,15 @@ services/docs/catalog/
 | `/release` | `release/x.y.z`, changelog (git-cliff), fusion, tag, PR de version dans `homelab` | `git-ops` |
 | `/upstream` | Remonte un bloc structurel vers son template (§8.3) | `dev` + `git-ops` |
 | `/audit` | Audit du projet | `auditor` |
-| `/retro` | Ce qui a gêné l'agent devient une règle de `AGENTS.md` ou une issue `harness-update` | sonnet |
+| `/lint` | Nettoie le lint du projet | `linter` |
+| `/retro` | Ce qui a gêné l'agent devient une règle de `AGENTS.md` ou une issue `harness-update` | opus |
 
 ### Skills racine (`services/`)
 
 | Skill | Ce qu'il fait |
 |---|---|
-| `/start-project` | Démarrer un projet de bout en bout (§9) |
+| `/project-idea` | Noter une idée de projet en une phrase, ou lui créer sa page (§9 bis) |
+| `/start-project` | Démarrer un projet de bout en bout (§9), éventuellement à partir d'une idée de `project-ideas` |
 | `/evolve <besoin>` | Faire évoluer l'écosystème pour un besoin nouveau (§16) |
 | `/doctor` | Lancer `harness-doctor.ps1` et expliquer les écarts (§18) |
 | `/integrate <dépôt>` | Mettre un site existant aux normes (§13) |
@@ -280,6 +306,49 @@ Le projet est **défini avant d'être créé**. Les brouillons vivent dans `serv
 | 8. v0 | CI + toi | Squelette tagué `v0.1.0`, image sur GHCR, PR de version dans `homelab`. **Tu fusionnes, ArgoCD déploie** |
 
 ⚠️ Tant que la plateforme k3s/ArgoCD de la phase 1 n'existe pas, l'étape 8 s'arrête à la PR ouverte dans `homelab`.
+
+---
+
+## 9 bis. Idées de projets : `project-ideas`
+
+Un dépôt volontairement simple, pour **noter une idée en une phrase** et la développer plus tard.
+
+```
+project-ideas/
+├── README.md         ← mode d'emploi
+├── IDEAS.md          ← LA liste centrale : une ligne par idée
+├── _template.md      ← modèle de page
+└── ideas/
+    └── 0007-quiz-party.md    ← page d'une idée, créée quand elle mûrit
+```
+
+**`IDEAS.md`**
+
+| # | Idée | Statut | Ajoutée | Page | Projet |
+|---|---|---|---|---|---|
+| 7 | Quiz multijoueur pour les soirées | `décrite` | 2026-10-12 | [page](ideas/0007-quiz-party.md) | |
+| 8 | Suivi des factures du foyer | `brute` | 2026-10-12 | | |
+
+**Les statuts :**
+- `brute` : juste une phrase ;
+- `décrite` : elle a sa page ;
+- `retenue` : prête pour `/start-project` ;
+- `lancée` : le dépôt existe, avec un lien vers lui ;
+- `en pause` ;
+- `abandonnée` : on garde la ligne pour se souvenir pourquoi.
+
+**La page d'une idée** suit `_template.md` : le problème, l'idée, pour qui, ce qu'elle ferait (3 à 5 points), l'archi pressentie, les questions ouvertes, des notes libres.
+
+**Trois façons de noter une idée :**
+- depuis `services/` : `/project-idea "une phrase"`, qui ajoute une ligne `brute`, la commite et la pousse ;
+- **sans Claude** : `scripts/idea.ps1 "une phrase"`, même résultat ;
+- **depuis le téléphone** : modifier `IDEAS.md` dans l'interface web de GitHub.
+
+**Ensuite :**
+- `/project-idea page 7` crée la page de l'idée n° 7 après quelques questions, et la passe en `décrite` ;
+- `/start-project 7` part de cette page pour l'étape 1 (§9). L'idée passe en `lancée`, avec le lien vers le nouveau dépôt.
+
+Les commits vont **directement sur `main`**, sans PR ni gitflow : `git-guard` l'autorise pour ce dépôt (`kind: ideas`).
 
 ---
 
@@ -429,14 +498,12 @@ Une seule commande répond à « est-ce que tout est en place et fonctionne ? »
 
 | Niveau | Vérifications |
 |---|---|
-| **Poste** | Outils présents et à la version minimale : `pwsh` 7, `git`, `gh`, `uv`, `copier`, `sops`, `age`, `gitleaks`, `codegraph`, `docker`, `dotnet`, `node`, `kubectl`, `tofu` et Claude Code. Authentification `gh` avec les bons droits (`repo`, `project`). Clé age présente et déclarée dans `homelab/.sops.yaml` |
+| **Poste** | Outils présents et à la version minimale : `pwsh` 7, `git`, `gh`, `uv`, `copier`, `sops`, `age`, `gitleaks`, `codegraph`, `docker`, `dotnet`, `node`, `kubectl`, `tofu` et Claude Code. Authentification `gh` avec les bons droits (`repo`, `project`), en SSH. **CLI `claude` connecté** (sa connexion est distincte de l'app desktop et peut expirer). Clé age présente et déclarée dans `homelab/.sops.yaml` |
 | **Racine `services`** | La liste blanche du `.gitignore` est intacte et aucun sous-dépôt n'est suivi. `repos.yaml` est cohérent avec GitHub : dépôts existants, visibilité attendue. Tous les dépôts sont clonés, propres et à jour. Le catalogue est récent. Les scripts racine sont à la dernière version du harness (`kind: root`) |
-| **Chaque dépôt** | Version du harness et des templates comparée aux derniers tags. Fichiers du harness intacts (`manifest.json`). Hooks branchés dans `settings.json`, `core.hooksPath` en place. Index codegraph présent et récent. Motifs de secrets présents dans `.gitignore`. Workflows CI pointant sur la même version du harness. Renovate configuré. Labels présents, dépôt relié au Project |
+| **Chaque dépôt** | Version du harness et des templates comparée aux derniers tags. Fichiers du harness intacts (`manifest.json`). Hooks branchés dans `settings.json`, `core.hooksPath` en place. **Plugins de `enabledPlugins` réellement installés** (`claude plugin install --scope project`). `claudeMdExcludes` présent. Index codegraph présent et récent. Motifs de secrets présents dans `.gitignore`. Workflows CI pointant sur la même version du harness. Renovate configuré. Labels présents, dépôt relié au Project |
 | **Autotests (`-Deep`)** | Une suite **Pester** livrée avec le harness envoie des entrées JSON simulées à chaque dispatcher et vérifie la décision : `general-purpose` refusé, commit depuis la session principale refusé, lecture de `.env` refusée, `--no-verify` refusé, faux secret bloqué par gitleaks… Les scripts sont lancés en `-WhatIf` |
 
-**Pourquoi un doctor maison.** Aucun outil existant ne connaît notre harness : nos hooks, nos modules, nos versions. Deux outils tiers le complètent sans le remplacer :
-- **`claude doctor`**, intégré à Claude Code, vérifie l'installation de Claude Code elle-même. Notre doctor l'appelle au niveau « poste » ;
-- **[claude-doctor](https://github.com/millionco/claude-doctor)** (MIT, jeune projet, 9 commits) n'examine pas la configuration. Il analyse les **transcripts** de session : boucles d'erreurs, corrections répétées, modifications en rafale. Il en tire des règles pour `AGENTS.md`. Ce n'est donc pas un doctor au sens d'ici, mais une bonne entrée pour `/retro`. Il sera essayé pendant la phase 1 de la roadmap.
+**Pourquoi un doctor maison.** Aucun outil existant ne connaît notre harness : nos hooks, nos modules, nos versions. Seul **`claude doctor`**, intégré à Claude Code, le complète : il vérifie l'installation de Claude Code elle-même, et notre doctor l'appelle au niveau « poste ».
 
 **Quand il tourne :**
 - **à l'ouverture d'une session** (hook `SessionStart`) : version rapide, une fois par jour, résultat mis en cache ;

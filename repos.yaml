@@ -15,6 +15,11 @@ repos:
     visibility: private
     status: active
 
+  - name: project-ideas
+    kind: ideas
+    visibility: private
+    status: planned        # phase 4
+
   - name: harness
     kind: harness
     visibility: public

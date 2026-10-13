@@ -46,7 +46,7 @@ Le chemin `C:\repo\services` n'est pas obligatoire, mais un chemin court évite 
 - `-WhatIf` montre ce qui serait fait, sans le faire.
 
 Deux outils ne s'installent pas par `winget` :
-- **Claude Code** : `irm https://claude.ai/install.ps1 | iex`
+- **Claude Code** : `irm https://claude.ai/install.ps1 | iex`, puis lancer `claude` et taper `/login`. Le CLI a sa propre connexion, distincte de l'app desktop : si elle expire, recommencer `/login`.
 - **codegraph** : `irm https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.ps1 | iex`
 
 ## 5. Identité Git

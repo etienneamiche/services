@@ -16,8 +16,8 @@
 
 | Phase | Thème | Dépend de |
 |---|---|---|
-| 0 | Poste, racine, `STARTUP.md` | — |
-| 1 | Spike : valider les hypothèses Claude Code | 0 |
+| 0 ✅ | Poste, racine, `STARTUP.md` | — |
+| 1 ✅ | Spike : valider les hypothèses Claude Code | 0 |
 | 2 | Harness cœur, hooks, doctor | 1 |
 | 3 | Conventions de code | 2 |
 | 4 | Process de travail : issues, Project, skills | 2, 3 |
@@ -31,7 +31,7 @@
 
 ---
 
-## Phase 0 — Poste, racine et `STARTUP.md`
+## Phase 0 — Poste, racine et `STARTUP.md` ✅
 
 **Objectif.** Pouvoir reconstruire l'environnement de travail sur n'importe quel poste Windows, pour toi ou pour un autre dev.
 
@@ -63,13 +63,13 @@
 
 ---
 
-## Phase 1 — Spike : valider les hypothèses Claude Code
+## Phase 1 — Spike : valider les hypothèses Claude Code ✅
 
 **Objectif.** Vérifier, avant d'écrire le harness, tout ce que le cadrage suppose sur Claude Code.
 
 **Livrables**
 - Un hook de journalisation qui écrit le JSON brut de chaque événement.
-- `docs/spike-claude-code.md`, avec une réponse vérifiée à chaque question :
+- [`docs/spike-claude-code.md`](spike-claude-code.md), avec une réponse vérifiée à chaque question :
   1. L'entrée des hooks contient-elle `agent_type` dans un subagent ? (C'est la base de `git-guard`.)
   2. Que voit-on du paramètre `model` lors d'un appel à l'outil `Agent` ?
   3. `CLAUDE_CODE_SUBAGENT_MODEL` écrase-t-il le modèle déclaré par un agent, ou `inherit` ?
@@ -78,9 +78,8 @@
   6. Les plugins déclarés dans le `settings.json` du projet (ponytail, LSP) s'installent-ils d'eux-mêmes ?
   7. Quelle est la **latence d'un hook `pwsh`** ? Faut-il un dispatcher unique, ou garder un processus résident ?
   8. Les hooks de ponytail, le hook global de codegraph et les nôtres cohabitent-ils sans conflit ?
-- **Essai de [claude-doctor](https://github.com/millionco/claude-doctor)** sur tes transcripts existants : les règles qu'il propose sont-elles utiles ? Si oui, il alimentera `/retro`.
 
-**Critère de sortie.** Les 8 questions ont une réponse vérifiée, le cadrage est corrigé en conséquence, et la décision sur claude-doctor est prise.
+**Critère de sortie.** Les 8 questions ont une réponse vérifiée, et le cadrage est corrigé en conséquence.
 
 ---
 
@@ -91,7 +90,7 @@
 **Livrables**
 - Dépôt `harness` (template Copier) : `copier.yml`, le cœur, le **système de modules** (`module.json`), `manifest.json`.
 - `AGENTS.md` et `CLAUDE.md` du projet, avec les imports de `.harness/agents/core.md`.
-- Les subagents : `dev`, `reviewer`, `git-ops`, `architect`, `auditor`.
+- Les subagents : `dev`, `architect` et `auditor` (Opus) ; `explorer`, `linter`, `git-ops`, `reviewer` et `cartographer` (Haiku).
 - Les dispatchers PowerShell et toutes les règles de hooks (cadrage §6), avec les profils `minimal / standard / strict`.
 - La protection des secrets (cadrage §17) : permissions `deny`, `secret-guard`, hook Git `pre-commit` + gitleaks, `.gitignore`.
 - **La suite Pester** des autotests de hooks.
@@ -140,14 +139,17 @@
 
 **Livrables**
 - Le GitHub Project unique, ses colonnes, les labels (`feature`, `bug`, `harness-update`, `infra`, `integration`, `from-users`), les modèles d'issue et de PR.
-- Les skills `/idea`, `/spec`, `/feature`, `/ship`, `/review`, `/release` (en local), `/retro` et `/doctor`.
+- Les skills `/idea`, `/spec`, `/feature`, `/ship`, `/review`, `/lint`, `/release` (en local), `/retro` et `/doctor`.
 - Le format des commits `type(scope): … (#n)`, et git-cliff pour le changelog.
+- **Le dépôt `project-ideas`** (cadrage §9 bis) : `IDEAS.md`, `_template.md`, `scripts/idea.ps1`, et le skill racine `/project-idea` (noter une idée, créer sa page).
 
 **Tests et critère de sortie.** Dans `harness-sandbox`, **trois issues fictives** passent de `Idée` à `Fait`. On vérifie que :
 - chaque commit et chaque PR sont faits par `git-ops` (Haiku) ;
 - le code est écrit par `dev` (Opus) ;
-- la revue est faite par `reviewer` (Sonnet) ;
+- la revue du diff est faite par `reviewer` (Haiku), et l'exploration du code par `explorer` (Haiku) ;
 - le board suit l'avancement.
+
+Pour `project-ideas` : une idée notée par `/project-idea`, une autre par `idea.ps1`, une troisième depuis l'interface web de GitHub. Les trois apparaissent dans `IDEAS.md`, et l'une d'elles reçoit sa page.
 
 Release **v0.3.0**.
 
@@ -210,7 +212,7 @@ Release **v0.3.0**.
 **Livrables**
 - Le harness racine (`kind: root`), avec les skills `/infra`, `/doctor` et `/audit-all`.
 - `build-catalog.ps1`, le catalogue, `rules.md` et les premiers ADR.
-- L'agent `architect` et `/start-project`, étapes 1 à 6 (l'étape 7 attend la phase 11).
+- L'agent `architect` et `/start-project`, étapes 1 à 6 (l'étape 7 attend la phase 11). `/start-project <n>` part de la page d'une idée de `project-ideas`, et la passe en `lancée`.
 - `/evolve`.
 - `/integrate`, essayé sur **un de tes sites existants** (cadrage §19).
 
