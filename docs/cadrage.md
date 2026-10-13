@@ -153,7 +153,7 @@ Le **harness racine** de `services/` est généré par le même dépôt `harness
 | (session principale) | **opus** | Conversation, orchestration |
 | `dev` | **opus** | Implémentation |
 | `architect` | **opus** | Spécification, conception d'architecture, roadmap |
-| `auditor` | **opus** | Audit, analyse d'intégration |
+| `auditor` | **opus** | Audit, analyse d'intégration, et **revue complète obligatoire avant chaque fusion** (§7) |
 | `explorer` | **haiku** | Explorer le code (codegraph d'abord) et rapporter ce qui a été trouvé à la session principale |
 | `linter` | **haiku** | Nettoyer le lint : lancer les formateurs et linters du projet, corriger les avertissements restants |
 | `git-ops` | **haiku** | Messages de commit, commits, push, PR, changelog, labels, issues |
@@ -212,7 +212,7 @@ services/docs/catalog/
 | Règle | Événement | Effet | Origine |
 |---|---|---|---|
 | `model-guard` | `PreToolUse` sur `Agent` | **Refuse** tout `subagent_type` hors liste blanche (y compris `general-purpose`), et **tout appel qui contient un paramètre `model`**, puisqu'il écraserait le modèle de l'agent | maison |
-| `git-guard` | `PreToolUse` sur `Bash`/`PowerShell` | Refuse `git commit`, `git push`, `gh pr *`, `gh issue create` et `gh release` **hors du subagent `git-ops`**. Refuse aussi `git worktree`, `rebase -i`, `push --force`, `--no-verify`, le push direct sur `main`/`develop`, la fusion d'une PR `homelab`, et un message de commit sans `(#n)` | maison + ECC |
+| `git-guard` | `PreToolUse` sur `Bash`/`PowerShell` | Refuse `git commit`, `git push`, `gh pr *`, `gh issue create` et `gh release` **hors du subagent `git-ops`**. Refuse aussi `git worktree`, `rebase -i`, `push --force`, `--no-verify`, le push direct sur `main`/`develop`, la fusion d'une PR `homelab`, et un message de commit sans `(#n)`. **Refuse `gh pr merge` si la PR n'a pas de revue `auditor` approuvée sur son dernier commit** (§7) | maison + ECC |
 | `destructive-guard` | `PreToolUse` sur `Bash`/`PowerShell` | Au premier essai de `rm -rf`, `git reset --hard`, `tofu destroy`, `kubectl delete` ou `DROP TABLE` : refus. L'agent doit lister ce qui sera touché, donner un plan de retour arrière et citer ta demande. Le second essai passe | ECC |
 | `config-protection` | `PreToolUse` sur `Edit`/`Write` | Bloque la modification des configs de lint et de format, de `.harness/**`, `.claude/settings.json`, `.github/workflows/**` et `.sops.yaml`. On les change par `/upstream` | ECC, étendu |
 | `secret-guard` | `PreToolUse` + `UserPromptSubmit` | Refuse `sops -d` vers la sortie standard et la lecture de `.env`, `*.key`, `*.pem` et des clés age. Détecte les jetons collés dans un prompt. Détail des 7 couches : §17 | maison + ECC |
@@ -243,12 +243,33 @@ Nos hooks cohabitent sans erreur avec le hook global de codegraph et ceux de pon
 | `/spec <n>` | Critères d'acceptation, impacts, plan. Passe l'issue en `Prêt` | opus (`architect`) |
 | `/feature <n>` | Crée `feature/<n>-<slug>` depuis `develop`, implémente et teste | `dev` + `git-ops` |
 | `/ship` | Commit `feat(scope): … (#n)`, push, PR `Closes #n` | `git-ops` |
-| `/review` | Revue de la PR en cours | `reviewer` |
+| `/review` | Revue rapide du diff en cours, pendant le développement | `reviewer` (haiku) |
+| `/audit-pr` | **Revue complète avant fusion** (voir ci-dessous). Obligatoire : sans elle, la fusion est refusée | `auditor` (opus) |
 | `/release` | `release/x.y.z`, changelog (git-cliff), fusion, tag, PR de version dans `homelab` | `git-ops` |
 | `/upstream` | Remonte un bloc structurel vers son template (§8.3) | `dev` + `git-ops` |
 | `/audit` | Audit du projet | `auditor` |
 | `/lint` | Nettoie le lint du projet | `linter` |
 | `/retro` | Ce qui a gêné l'agent devient une règle de `AGENTS.md` ou une issue `harness-update` | opus |
+
+### La revue avant fusion : `/audit-pr`
+
+**Deux niveaux de revue.** Pendant le développement, `reviewer` (Haiku) relit vite chaque diff. **Avant toute fusion**, `auditor` (Opus) fait une revue complète de la PR.
+
+**Ce que couvre la revue complète :**
+- **la PR entière**, et pas seulement le dernier diff : correction, cas limites, gestion des erreurs ;
+- **la sécurité** : entrées, auth, secrets, dépendances ajoutées ;
+- **les migrations de base**, et leur compatibilité avec la version précédente (doc 07 §6) ;
+- **le respect des conventions** du projet et de `ARCHITECTURE.md` ;
+- **les tests** : présents, pertinents, verts ;
+- **l'issue liée** : les critères d'acceptation sont-ils remplis ?
+
+**Le résultat** est publié en commentaire sur la PR : verdict (`approuvée` ou `changements demandés`), constats classés par gravité, et le SHA du commit relu. Un marqueur invisible (`<!-- auditor: sha=<sha> verdict=approve -->`) permet aux scripts de le lire.
+
+**La règle est bloquante, pas déclarative.** `git-guard` refuse `gh pr merge` tant que le dernier commit de la PR n'a pas de verdict `approve` de `auditor`. Un commit poussé après la revue invalide l'approbation : il faut relancer `/audit-pr`.
+
+**Le circuit d'une feature :** `/feature` → `/review` (autant de fois que nécessaire) → `/ship` (PR) → **`/audit-pr`** → corrections éventuelles et nouvel `/audit-pr` → fusion par `git-ops`.
+
+**Les PR fusionnées par toi**, celles de `homelab` en particulier, passent aussi par `/audit-pr` avant que je te demande de fusionner.
 
 ### Skills racine (`services/`)
 

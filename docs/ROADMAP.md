@@ -139,7 +139,7 @@
 
 **Livrables**
 - Le GitHub Project unique, ses colonnes, les labels (`feature`, `bug`, `harness-update`, `infra`, `integration`, `from-users`), les modèles d'issue et de PR.
-- Les skills `/idea`, `/spec`, `/feature`, `/ship`, `/review`, `/lint`, `/release` (en local), `/retro` et `/doctor`.
+- Les skills `/idea`, `/spec`, `/feature`, `/ship`, `/review`, `/audit-pr`, `/lint`, `/release` (en local), `/retro` et `/doctor`.
 - Le format des commits `type(scope): … (#n)`, et git-cliff pour le changelog.
 - **Le dépôt `project-ideas`** (cadrage §9 bis) : `IDEAS.md`, `_template.md`, `scripts/idea.ps1`, et le skill racine `/project-idea` (noter une idée, créer sa page).
 
@@ -147,6 +147,7 @@
 - chaque commit et chaque PR sont faits par `git-ops` (Haiku) ;
 - le code est écrit par `dev` (Opus) ;
 - la revue du diff est faite par `reviewer` (Haiku), et l'exploration du code par `explorer` (Haiku) ;
+- **chaque PR reçoit une revue complète de `auditor` (Opus) avant sa fusion**. Une fusion tentée sans elle, ou après un nouveau commit, est refusée par `git-guard` ;
 - le board suit l'avancement.
 
 Pour `project-ideas` : une idée notée par `/project-idea`, une autre par `idea.ps1`, une troisième depuis l'interface web de GitHub. Les trois apparaissent dans `IDEAS.md`, et l'une d'elles reçoit sa page.
