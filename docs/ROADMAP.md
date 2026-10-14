@@ -273,6 +273,12 @@ Release **v0.3.0**.
 
 **Livrables**
 - Les workflows réutilisables dans `harness` : build, tests, lint, gitleaks, `harness-check` et doctor au niveau dépôt.
+- **La protection côté GitHub**, seule vraie garantie face à un contournement délibéré des hooks (mot cité, alias, `curl` avec un jeton : recommandation de la revue `auditor` de la PR harness #1). Un *ruleset* sur `main` et `develop` de chaque dépôt public (gratuit), qui impose :
+  - la PR ;
+  - la CI verte ;
+  - **un contrôle de statut « auditor »**, que la revue `/audit-pr` publie sur le commit revu.
+
+  `homelab`, privé, garde sa limite connue, faute de protection de branche gratuite.
 - GitVersion et le gitflow des apps, avec les images publiées sur GHCR.
 - La publication de `libs` sur npm, PyPI et nuget.org en *trusted publishing*, et le *playground* sur GitHub Pages.
 - **La CI de `harness`** : génération de chaque archi, build, tests et Pester en `-Deep`.
