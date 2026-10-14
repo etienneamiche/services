@@ -19,7 +19,7 @@
 | 0 ✅ | Poste, racine, `STARTUP.md` | — |
 | 1 ✅ | Spike : valider les hypothèses Claude Code | 0 |
 | 2 ✅ | Harness cœur, hooks, doctor | 1 |
-| 3 | Conventions de code | 2 |
+| 3 ✅ | Conventions de code | 2 |
 | 4 | Process de travail : issues, Project, skills | 2, 3 |
 | 5 | `template-react`, `libs/ui`, thèmes, *playground* | 4 |
 | 6 | `template-dotnet`, `template-python`, secrets de dev | 5 |
@@ -127,7 +127,7 @@
 
 ---
 
-## Phase 3 — Conventions de code
+## Phase 3 — Conventions de code ✅
 
 **Objectif.** Fixer les pratiques communes et celles de chaque stack, avant d'écrire les templates. C'est la question reportée lors du cadrage.
 
@@ -157,7 +157,9 @@
   - pas de coffre-fort hébergé ;
   - le Job de migration DbUp remplace le bundle EF du doc 07 ;
   - l'exposition `internal` et le volume persistant s'ajoutent au chart.
-- **[PR harness #1](https://github.com/etienneamiche/harness/pull/1)** : 89 autotests sur un projet avec les 4 modules, 83 sur `root`. Fusion et tag v0.2.0 après ta validation.
+- **[PR harness #1](https://github.com/etienneamiche/harness/pull/1)** fusionnée et **v0.2.0 taguée**, après **six passages de revue `auditor`** (16 constats importants corrigés au total, dont un contournement de la revue obligatoire). Le principal changement de conception est que **toute fusion passe par `.harness/tools/merge-pr.ps1`**, qui ne fusionne que le commit revu. Les autotests sont passés de 89 à 131. Quatre contournements mineurs restent ouverts dans [harness#2](https://github.com/etienneamiche/harness/issues/2).
+- **Premier `copier update` réel** : `harness-sandbox` est passé de v0.1.1 à v0.2.0 (doctor entièrement vert), via la PR [harness-sandbox#1](https://github.com/etienneamiche/harness-sandbox/pull/1), gardée pour le premier essai de `/audit-pr` en phase 4. Deux enseignements sont notés dans [harness#3](https://github.com/etienneamiche/harness/issues/3) : `--answers-file` est obligatoire, et le manifeste se régénère au lieu de se fusionner.
+- **Leçon** : une PR de plus de 2 000 lignes a demandé six revues. La règle des 400 lignes n'était pas qu'une préférence de style.
 - **Ce qui reste non vérifié** : `biome.json` et `analyzers.globalconfig` n'ont pas encore tourné sur du vrai code. Ils le seront avec les templates (phases 5 à 7).
 
 ---
