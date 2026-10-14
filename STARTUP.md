@@ -108,7 +108,12 @@ Le script clone ce qui manque et met à jour le reste par `pull --ff-only`. Il n
 
 `setup-workstation.ps1 -Role admin` génère une **clé age propre à ce poste**, dans `%APPDATA%\sops\age\keys.txt`, et affiche sa clé publique.
 
-- **La clé privée ne quitte jamais le poste.** Elle ne se copie pas, ne se commite pas, ne s'envoie pas.
+- **La clé privée ne quitte jamais le poste**, sauf pour sa copie de secours. Elle ne se commite pas, ne s'envoie pas, ne se colle dans aucune conversation.
+- **Copie de secours hors ligne, obligatoire sur le premier poste admin** : si toutes les clés sont perdues, tous les secrets le sont aussi. Ouvre `%APPDATA%\sops\age\keys.txt` toi-même, et range son contenu :
+  - dans ton gestionnaire de mots de passe ;
+  - **et** sur un support hors ligne : une impression ou une clé USB, rangée à part.
+
+  Un deuxième poste admin, avec sa propre clé, ajoute une sécurité, mais ne remplace pas cette copie.
 - Pour que ce poste puisse déchiffrer les secrets, **un poste qui a déjà l'accès** lance :
   ```powershell
   ./scripts/add-workstation-key.ps1 -PublicKey age1… -Name portable

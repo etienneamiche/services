@@ -35,6 +35,8 @@ Un seul point d'entrée, `services/`, pour **démarrer, intégrer, développer, 
 
 **Branche par défaut : `main` partout.** Les apps ajoutent `develop`, `release/*` et `hotfix/*` (gitflow du doc 07). Le harness, les templates et `libs` vivent sur `main` seul.
 
+**Le harness, les templates et `libs` passent eux aussi par une PR et `/audit-pr`**, même sans gitflow : une modification s'y répercute dans tous les projets. Ces dépôts sont publics, donc la protection de branche GitHub est gratuite : un *ruleset* y impose la PR sur `main`, en plus du hook `git-guard`.
+
 ⚠️ **`homelab` est privé**, donc sans protection de branche sur GitHub Free. Or fusionner dans `homelab` = déployer. Le garde-fou repose donc sur `git-guard` (§6) et sur la discipline. GitHub Pro reste une option plus tard.
 
 ### `services` ne versionne que lui-même
@@ -503,13 +505,22 @@ Défense en profondeur. Aucune couche ne suffit seule, mais ensemble elles couvr
 
 | Couche | Ce qu'elle empêche | Remarque |
 |---|---|---|
-| **1. Pas de secret en clair sur le disque** | Il n'y a rien à lire. Les secrets de dev sont dans un `secrets.dev.sops.yaml` chiffré, dans le dépôt. `launch.ps1` les injecte en variables d'environnement **du seul processus lancé** (`sops exec-env`). Pas de `.env`, pas de `dotnet user-secrets` | La protection la plus forte : un fichier qui n'existe pas ne fuit pas |
+| **1. Pas de secret en clair sur le disque** | Il n'y a rien à lire. Les secrets de dev locaux sont chiffrés dans **`homelab/secrets/dev/<app>.sops.yaml`** (dépôt privé : les dépôts d'apps sont publics). `launch.ps1` les injecte en variables d'environnement **du seul processus lancé** (`sops exec-env`). Pas de `.env`, pas de `dotnet user-secrets` | La protection la plus forte : un fichier qui n'existe pas ne fuit pas. Contrepartie : seul un poste `admin` lance une app qui a besoin de secrets |
 | **2. Permissions Claude (`deny`)** | `Read` sur `.env` et ses variantes (sauf `.env.example`), `*.pem`, `*.key`, `*.pfx`, `secrets.json`, `*.dec.yaml`, `~/.ssh`, `~/.git-credentials`, `%APPDATA%\Microsoft\UserSecrets\`, et les clés age | Bloquant, natif et sans latence. S'applique aussi à `Grep` et `Glob`, mais pas à une lecture passée par le shell |
 | **3. Hook `secret-guard`** | La lecture de ces chemins par une commande shell (`cat`, `type`, `Get-Content`, `gc`…), `sops -d` vers la sortie standard, l'affichage des variables d'environnement, et les jetons collés dans un prompt | Au mieux de ses moyens : une commande détournée peut passer. D'où les couches 1 et 4 |
 | **4. Hook Git `pre-commit` + gitleaks** | Tout commit contenant un secret, **qu'il vienne de l'agent ou de toi**. Installé par `core.hooksPath=.harness/githooks` | `git-guard` interdit `--no-verify` à l'agent |
 | **5. `git-guard` à l'indexation** | `git add -A` et `git add .` sont refusés à l'agent. `git-ops` ajoute les fichiers un par un, et le hook vérifie leur nom avant le commit | |
 | **6. `.gitignore` du harness** | `.env*`, `*.pem`, `*.key`, `*.pfx`, `secrets.json`, `*.local.json`… | Protégé par `config-protection` : l'agent ne peut pas le modifier |
 | **7. CI gitleaks + *push protection* GitHub** | Le dernier filet, côté serveur. La *push protection* est gratuite et active par défaut sur les dépôts publics | ⚠️ Non disponible gratuitement sur `homelab`, privé : ce dépôt ne compte que sur la couche 4 et la CI gitleaks |
+
+**Gérer les secrets au quotidien :**
+- **toi** : `sops homelab/secrets/<app>.sops.yaml` ouvre le fichier déchiffré dans ton éditeur et le rechiffre à la fermeture. Tout est versionné dans Git ;
+- **un agent ne voit jamais un secret**, mais peut en créer : `scripts/secret-new.ps1 -App <app> -Key <clé> -Generate` génère une valeur aléatoire et l'écrit chiffrée **sans jamais l'afficher** (mot de passe interne, clé entre services) ;
+- **un secret venu de l'extérieur** (jeton GitHub, client Google) : `scripts/secret-set.ps1 -App <app> -Key <clé>` te demande la valeur en saisie masquée. L'agent te dit quoi lancer.
+
+**Pas de coffre-fort hébergé** (Vault, OpenBao, Infisical) : pour un seul humain et un cluster à un nœud, ce serait une panne possible de plus pour peu de gain. À reconsidérer par `/evolve` s'il y a un jour plusieurs personnes avec des droits différents, ou un besoin de rotation automatique (OpenBao).
+
+**Le point de vigilance est la clé age** : sans elle, tous les secrets sont perdus. Une copie de secours hors ligne est obligatoire (`STARTUP.md` §8).
 
 **Le doctor teste ces couches** (§18) : il présente un faux secret de test aux hooks et à gitleaks, et vérifie qu'il est bien bloqué.
 
@@ -539,10 +550,33 @@ Une seule commande répond à « est-ce que tout est en place et fonctionne ? »
 ## 19. Points ouverts
 
 1. ❓ **Sites à intégrer** : lesquels, sur quelles stacks, hébergés où aujourd'hui, et déjà sur GitHub ? Ce n'est pas bloquant avant l'étape 7 de l'ordre de construction.
-2. Conventions techniques par stack : à voir plus tard.
+2. ~~Conventions techniques par stack~~ : décidées en phase 3, voir §21.
 
 ---
 
 ## 20. Ordre de construction
 
 Voir [`ROADMAP.md`](ROADMAP.md) : 12 phases, chacune avec ses livrables, ses tests et son critère de sortie.
+
+---
+
+## 21. Conventions de code (phase 3)
+
+**La source de vérité est le harness**, pas ce document : `.harness/agents/conventions.md` (commun) et `.harness/modules/<stack>/conventions.md` ([dépôt `harness`](https://github.com/etienneamiche/harness), v0.2.0). Ce qui suit résume les décisions qui touchent le reste de l'écosystème.
+
+| Sujet | Décision |
+|---|---|
+| Langues | Code et Git (commits, CHANGELOG) en anglais ; docs, issues, PR et interfaces en français. i18n dès le départ |
+| Modules du harness | `react`, `dotnet`, `python`, `game` : un projet reçoit ceux de ses stacks |
+| Front | Options `api` (`openapi` · `none`), `auth` (`none` · `forward-auth` · `oidc`), `google`, `realtime`. Le front n'appelle jamais une API tierce : il passe par son backend |
+| Backend .NET | Controller → Service → Dal / Clients, en projets séparés. **Database-first** : schéma en SQL, migrations **DbUp** (`NNNN.<issue>.<slug>.sql`), code EF généré par l'agent `db-ops` |
+| Migrations en prod | Une image de migration par app, lancée dans le cluster par un Job ArgoCD *PreSync*. La CI n'accède jamais à la base |
+| Python | Petits modules uniquement (traitements longs, services internes). Pas de Postgres : au-delà, c'est un backend .NET |
+| Utilisateurs et droits | `ICurrentUser` ; rôles = groupes Authentik `<app>-<rôle>`, traduits en permissions par l'app ; impersonation par l'en-tête `X-Impersonate-User`, avec audit, et « Naviguer en tant que » dans le front |
+| Configuration | `appsettings.json` + `appsettings.Local.json` (sans secret) dans le dépôt de l'app ; **la config de prod vit dans `homelab`** (variables d'environnement), jamais dans le dépôt public de l'app |
+| Jeux | Tour par tour et temps réel léger ; serveur qui fait autorité ; sauvegardes de partie versionnées. Action temps réel et client lourd : en réserve |
+| Tests | Unitaires, intégration contre le Postgres local (pas de Testcontainers), composants (Testing Library + MSW), Playwright + axe sur les parcours critiques. Couverture sans seuil bloquant |
+
+**Briques communes à livrer dans `libs`** (phases 5 et 6) : `MarbleStudio.Hosting` (.NET) et `marblestudio-hosting` (Python) branchent en une ligne logs, OpenTelemetry, Problem Details, sondes, validation, authentification et `ICurrentUser` ; l'exécutable de migration DbUp ; les clients des API internes (`MarbleStudio.<Service>.Client`).
+
+**Ajouts au chart générique de `homelab`** : l'exposition `internal` (aucune route, NetworkPolicy limitée à l'app appelante), un volume persistant optionnel, et le Job de migration DbUp à la place du bundle EF prévu au doc 07 §6.

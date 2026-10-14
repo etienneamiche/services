@@ -143,6 +143,23 @@
 
 **Critère de sortie.** Les modules `core`, `react`, `dotnet` et `python` du harness contiennent leurs conventions et leurs configs de lint et de format. Release **v0.2.0**.
 
+**Bilan (2026-10-14)**
+- **5 sessions tenues** (commun, React, .NET, Python, jeu multi). Les décisions sont dans le harness (`conventions.md` et `.harness/modules/<stack>/`) ; le cadrage §21 en résume la portée.
+- **Système de modules** livré : `react`, `dotnet`, `python` et `game`. Les conventions des modules choisis sont importées par `core.md` ; une session Claude a confirmé qu'elle les charge.
+- **Ajouts imprévus au départ** :
+  - le subagent `db-ops` (Haiku) pour le database-first ;
+  - deux skills adaptés de dotnet/skills ;
+  - le module `game` ;
+  - les plugins LSP par module.
+- **Décisions qui débordent du harness** :
+  - la config de prod vit dans `homelab` ;
+  - les secrets de dev locaux aussi, dans `homelab/secrets/dev/` ;
+  - pas de coffre-fort hébergé ;
+  - le Job de migration DbUp remplace le bundle EF du doc 07 ;
+  - l'exposition `internal` et le volume persistant s'ajoutent au chart.
+- **[PR harness #1](https://github.com/etienneamiche/harness/pull/1)** : 89 autotests sur un projet avec les 4 modules, 83 sur `root`. Fusion et tag v0.2.0 après ta validation.
+- **Ce qui reste non vérifié** : `biome.json` et `analyzers.globalconfig` n'ont pas encore tourné sur du vrai code. Ils le seront avec les templates (phases 5 à 7).
+
 ---
 
 ## Phase 4 — Process de travail : issues, Project et skills
@@ -153,6 +170,7 @@
 - Le GitHub Project unique, ses colonnes, les labels (`feature`, `bug`, `harness-update`, `infra`, `integration`, `from-users`), les modèles d'issue et de PR.
 - Les skills `/idea`, `/spec`, `/feature`, `/ship`, `/review`, `/audit-pr`, `/lint`, `/release` (en local), `/retro` et `/doctor`.
 - Le format des commits `type(scope): … (#n)`, et git-cliff pour le changelog.
+- **PR obligatoire sur `harness`, les templates et `libs`** : *ruleset* GitHub sur `main` (gratuit, dépôts publics), et `/audit-pr` avant chaque fusion.
 - **Le dépôt `project-ideas`** (cadrage §9 bis) : `IDEAS.md`, `_template.md`, `scripts/idea.ps1`, et le skill racine `/project-idea` (noter une idée, créer sa page).
 
 **Tests et critère de sortie.** Dans `harness-sandbox`, **trois issues fictives** passent de `Idée` à `Fait`. On vérifie que :
@@ -178,9 +196,11 @@ Release **v0.3.0**.
 - Le *playground* de thèmes, lancé en local (il passera sur GitHub Pages en phase 10).
 - `new-project.ps1`, dans sa version sans étape d'infra, avec `codegraph init`.
 - `launch.ps1`, à la racine et dans le projet.
+- `setup-workstation.ps1` : pnpm à jour (installé via corepack), Node 24 LTS.
+- Options de `template-react` : `api` (`openapi` · `none`), `auth` (`none` · `forward-auth` · `oidc`), `google`, `realtime`.
 
 **Tests et critère de sortie**
-- Un projet « React seul » est généré, lancé et passe le doctor.
+- Un projet « React seul » est généré, lancé et passe le doctor. **Biome tourne avec la config du module `react`** et la valide sur du vrai code.
 - Une feature y est développée selon le circuit de la phase 4.
 - On change de thème dans le *playground*, et la variante exportée s'applique au projet.
 
@@ -189,20 +209,33 @@ Release **v0.3.0**.
 ## Phase 6 — .NET, Python et secrets de dev
 
 **Livrables**
-- `template-dotnet` et `template-python`, avec leurs modules du harness.
-- Les options `postgres` (Docker en local) et `auth`, avec auth désactivée en local.
-- **Les secrets de dev** : `secrets.dev.sops.yaml` injecté par `launch.ps1` via `sops exec-env`.
-- Les paquets `MarbleStudio.*` et `marblestudio-*` dans `libs`, encore publiés en local seulement.
+- `template-dotnet` (Controller → Service → Dal / Clients, test d'architecture, `scripts/db.ps1` pour `db-ops`) et `template-python` (module léger, option `jobs`).
+- Les options `postgres` (Docker en local, migrations DbUp) et `auth`, avec auth désactivée en local.
+- **Dans `libs`** : `MarbleStudio.Hosting` et `marblestudio-hosting` (logs, OpenTelemetry, Problem Details, sondes, validation, authentification, `ICurrentUser`, permissions, impersonation, `ServiceResult<T>`), et l'**exécutable de migration DbUp** (image commune). Publiés en local seulement à ce stade.
+- **Les secrets de dev** : `homelab/secrets/dev/<app>.sops.yaml`, injectés par `launch.ps1` via `sops exec-env`. Les scripts `secret-new.ps1` (valeur générée, jamais affichée, utilisable par un agent) et `secret-set.ps1` (saisie masquée par toi).
+- `setup-workstation.ps1` : outil `csharp-ls` (pour le plugin `csharp-lsp`).
 
-**Tests et critère de sortie.** Les combinaisons « .NET seul », « .NET + React + BDD », « … + auth » et « Python + React » sont générées, lancées et passent le doctor. **Aucun fichier de secret en clair** n'apparaît sur le disque pendant leur exécution.
+**Tests et critère de sortie.**
+- Les combinaisons « .NET seul », « .NET + React + BDD », « … + auth » et « Python + React (jobs) » sont générées, lancées et passent le doctor.
+- **`analyzers.globalconfig` tourne sur du vrai code.**
+- **Aucun fichier de secret en clair** n'apparaît sur le disque pendant leur exécution.
+- Un agent crée un secret par `secret-new.ps1` sans que sa valeur apparaisse dans la conversation.
 
 ---
 
 ## Phase 7 — Jeu multijoueur
 
-**Livrables.** `template-game-multi` : serveur SignalR, lobby et salles, client React avec canvas, contrats de messages partagés.
+**Livrables.** `template-game-multi`, selon le module `game` :
+- serveur SignalR qui fait autorité, avec les règles en fonctions pures (`Apply`) ;
+- salles avec une file par salle, des codes courts et la reconnexion ;
+- joueurs invités, et connexion Authentik en option ;
+- sauvegardes de partie versionnées (option `postgres`) ;
+- client React avec rendu DOM + CSS, et contrats générés depuis le C#.
 
-**Critère de sortie.** Deux navigateurs jouent ensemble en local. Le projet passe le doctor.
+**Critère de sortie.**
+- Deux navigateurs jouent ensemble en local.
+- Une partie survit à un redémarrage du serveur grâce à sa sauvegarde.
+- Le projet passe le doctor.
 
 ---
 
@@ -267,3 +300,15 @@ Release **v0.3.0**.
 **Critère de sortie**
 - Un projet démarré par `/start-project` tourne sur le cluster.
 - Un signalement envoyé depuis cette app crée une issue expurgée sur son dépôt.
+
+---
+
+## En réserve
+
+Des sujets écartés volontairement, à reprendre plus tard par `/evolve`.
+
+| Sujet | Décidé le | Pourquoi plus tard |
+|---|---|---|
+| **Jeu d'action en temps réel, avec un client lourd** : seule la partie serveur serait dans l'écosystème (boucle à fréquence fixe, prédiction côté client) | 2026-10-14 | Complexité sans commune mesure avec les jeux au tour par tour et le temps réel léger |
+| **Coffre-fort de secrets hébergé** (OpenBao) | 2026-10-14 | Inutile pour un seul humain ; à reprendre s'il y a plusieurs personnes ou un besoin de rotation automatique |
+| **Relais Redis pour SignalR** (plusieurs instances d'une app) | 2026-10-14 | Une instance suffit tant que la charge le permet |
