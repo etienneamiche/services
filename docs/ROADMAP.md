@@ -326,7 +326,7 @@ L'infra a sa propre roadmap, dans `homelab/docs/03-roadmap.md` (dépôt privé).
 **Ordre retenu (2026-10-20) : la phase 4 d'abord, puis H1.**
 
 **Avant H1, dans `homelab` :**
-- le harness, de type `infra`, installé comme dans les autres dépôts : `git-guard`, `auditor` et `merge-pr.ps1` y protègent `main`, puisque `homelab` est privé et sans protection de branche gratuite ;
+- le harness, de type `infra`, installé comme dans les autres dépôts. `homelab` est privé et sans protection de branche gratuite : `git-guard` y protège `main`, chaque PR reçoit une revue `auditor`, et **aucun agent ne fusionne** (`merge-pr.ps1` refuse les PR de `homelab`). C'est toi qui fusionnes, à la main ;
 - un **module `infra`** dans le harness : conventions et lint pour Ansible, OpenTofu, les manifestes Kubernetes et SOPS, et les wrappers `infra/*.ps1`, qui demandent confirmation avant toute action destructive ou d'application (`tofu apply`, `ansible-playbook`, `kubectl apply` et `delete`).
 
 **Ce que H1 ne livre pas**, parce que `services` le livre : les templates d'application (phases 5 à 7), la CI des apps, GitVersion, GHCR et Renovate (phase 10), le déploiement d'une app créée par `/start-project` et `services-map` (phase 11). La première app exposée en H1 est une app existante, packagée en Helm.
