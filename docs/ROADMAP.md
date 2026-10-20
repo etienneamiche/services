@@ -12,7 +12,7 @@
   4. ta validation.
 - **On teste sur du jetable avant le réel.** Un dépôt `harness-sandbox` sert de terrain d'essai jusqu'à la phase 5.
 - **La CI/CD vient à la fin** (phase 10). Avant, tout se vérifie en local, par scripts et par Pester.
-- **Les dépendances à la plateforme k3s** (déploiement, `feedback`, `services-map`) sont regroupées en phase 11. Elles attendent la phase 1 du homelab (doc 03), qui avance en parallèle.
+- **Les dépendances à la plateforme k3s** (déploiement, `feedback`, `services-map`) sont regroupées en phase 11. Elles attendent **H1**, la plateforme du homelab (voir « Piste homelab » plus bas).
 
 | Phase | Thème | Dépend de |
 |---|---|---|
@@ -27,7 +27,7 @@
 | 8 | Mises à jour et propagation | 6 |
 | 9 | Harness racine, architecte, `/start-project`, `/evolve`, `/integrate` | 8 |
 | 10 | CI/CD | 9 |
-| 11 | Ce qui dépend de la plateforme k3s | 10 + homelab phase 1 |
+| 11 | Ce qui dépend de la plateforme k3s | 10 + H1 |
 
 ---
 
@@ -297,17 +297,39 @@ Release **v0.3.0**.
 
 ## Phase 11 — Ce qui dépend de la plateforme k3s
 
-*Attend que la phase 1 du homelab (docs 03 et 07) soit terminée.*
+*Attend que H1, la plateforme du homelab, soit terminée.*
 
 **Livrables**
 - `/start-project` étapes 7 et 8 : PR d'infra et v0 déployée.
 - Le service `feedback` (Turnstile, limite de débit, contenu expurgé, GitHub App).
 - `services-map` et `/map-infra`.
-- Les wrappers `infra/*.ps1`.
 
 **Critère de sortie**
 - Un projet démarré par `/start-project` tourne sur le cluster.
 - Un signalement envoyé depuis cette app crée une issue expurgée sur son dépôt.
+
+---
+
+## Piste homelab
+
+L'infra a sa propre roadmap, dans `homelab/docs/03-roadmap.md` (dépôt privé). Ses détails n'ont pas leur place ici (cadrage §2) : cette section ne porte que ses phases, notées **H0 à H5** pour ne pas les confondre avec celles de `services`, et leurs dépendances avec elles.
+
+| Phase | Thème | Dépend de | État |
+|---|---|---|---|
+| H0 | Hyperviseur `pve-01` | — | ✅ Une sauvegarde réelle reste à voir tourner : elle attend le premier invité, en H1 |
+| H1 | Plateforme : clusters k3s `home` et `vps`, GitOps, première app exposée | H0, phase 4, harness et module `infra` dans `homelab` | À venir |
+| H2 | Données et médias | H1 | — |
+| H3 | Réseau, sécurité et supervision | H2 | — |
+| H4 | IA locale | H1 | — |
+| H5 | Domotique | H3 | — |
+
+**Ordre retenu (2026-10-20) : la phase 4 d'abord, puis H1.**
+
+**Avant H1, dans `homelab` :**
+- le harness, de type `infra`, installé comme dans les autres dépôts : `git-guard`, `auditor` et `merge-pr.ps1` y protègent `main`, puisque `homelab` est privé et sans protection de branche gratuite ;
+- un **module `infra`** dans le harness : conventions et lint pour Ansible, OpenTofu, les manifestes Kubernetes et SOPS, et les wrappers `infra/*.ps1`, qui demandent confirmation avant toute action destructive ou d'application (`tofu apply`, `ansible-playbook`, `kubectl apply` et `delete`).
+
+**Ce que H1 ne livre pas**, parce que `services` le livre : les templates d'application (phases 5 à 7), la CI des apps, GitVersion, GHCR et Renovate (phase 10), le déploiement d'une app créée par `/start-project` et `services-map` (phase 11). La première app exposée en H1 est une app existante, packagée en Helm.
 
 ---
 

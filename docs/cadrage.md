@@ -37,7 +37,7 @@ Un seul point d'entrée, `services/`, pour **démarrer, intégrer, développer, 
 
 **Le harness, les templates et `libs` passent eux aussi par une PR et `/audit-pr`**, même sans gitflow : une modification s'y répercute dans tous les projets. Ces dépôts sont publics, donc la protection de branche GitHub est gratuite : un *ruleset* y impose la PR sur `main`, en plus du hook `git-guard`.
 
-⚠️ **`homelab` est privé**, donc sans protection de branche sur GitHub Free. Or fusionner dans `homelab` = déployer. Le garde-fou repose donc sur `git-guard` (§6) et sur la discipline. GitHub Pro reste une option plus tard.
+⚠️ **`homelab` est privé**, donc sans protection de branche sur GitHub Free. Or fusionner dans `homelab` = déployer. Le garde-fou repose donc sur `git-guard` (§6), via le harness de type `infra` installé dans `homelab` avant H1, et sur la discipline. GitHub Pro reste une option plus tard.
 
 ### `services` ne versionne que lui-même
 
@@ -330,7 +330,7 @@ Le projet est **défini avant d'être créé**. Les brouillons vivent dans `serv
 | 7. PR infra | `git-ops` | Dans `homelab`, tout ce que décrit `INFRA.md` : `config.yaml` de l'app, *blueprint* Authentik, base CNPG, secrets SOPS à remplir |
 | 8. v0 | CI + toi | Squelette tagué `v0.1.0`, image sur GHCR, PR de version dans `homelab`. **Tu fusionnes, ArgoCD déploie** |
 
-⚠️ Tant que la plateforme k3s/ArgoCD de la phase 1 n'existe pas, l'étape 8 s'arrête à la PR ouverte dans `homelab`.
+⚠️ Tant que la plateforme k3s/ArgoCD de H1 (la plateforme du homelab) n'existe pas, l'étape 8 s'arrête à la PR ouverte dans `homelab`.
 
 ---
 
@@ -457,7 +457,8 @@ Objectif : mettre aux normes un site développé à côté, **sans tout refaire*
 | `harness-sync.ps1` / `template-sync.ps1` | Propagation (§8) |
 | `release-lib.ps1` | Tague un paquet de `libs` (`node-v1.2.0`…). La CI le publie sur son registre |
 | `audit.ps1` | Versions en retard, état de la CI, version déployée comparée au dernier tag, conventions. Les CVE ne sont pas vérifiées |
-| `infra/*.ps1` | Wrappers `kubectl`, `argocd`, `tofu` et `ansible`, avec confirmation pour toute action destructive ou d'application |
+
+**Les wrappers d'infra** (`kubectl`, `argocd`, `tofu`, `ansible`, avec confirmation pour toute action destructive ou d'application) ne sont pas des scripts racine : ils viennent du module `infra` du harness, installé dans `homelab` avant H1.
 
 **Publication de `libs`** : par *trusted publishing* (OIDC depuis GitHub Actions) sur npm et PyPI. Aucun jeton longue durée n'est stocké. Pour nuget.org, la disponibilité de ce mode est à confirmer, sinon on utilise une clé d'API limitée au préfixe des paquets.
 
