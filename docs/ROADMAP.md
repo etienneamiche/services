@@ -316,7 +316,7 @@ L'infra a sa propre roadmap, dans `homelab/docs/03-roadmap.md` (dépôt privé).
 
 | Phase | Thème | Dépend de | État |
 |---|---|---|---|
-| H0 | Hyperviseur `pve-01` | — | ✅ Une sauvegarde réelle reste à voir tourner : elle attend le premier invité, en H1 |
+| H0 | Hyperviseur `pve-01` | — | ✅ Trois points reportés : les relevés de réception (avant la fin du droit de retour), la première sauvegarde réelle (avec le premier invité, en H1) et le test du runbook sur `pve-99` |
 | H1 | Plateforme : clusters k3s `home` et `vps`, GitOps, première app exposée | H0, phase 4, harness et module `infra` dans `homelab` | À venir |
 | H2 | Données et médias | H1 | — |
 | H3 | Réseau, sécurité et supervision | H2 | — |
