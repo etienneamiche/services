@@ -25,9 +25,10 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'lib' 'Services.psm1') -Force
 
 # -WhatIf ne doit pas s'appliquer au chargement de powershell-yaml : il afficherait ses alias.
+$whatIf = $WhatIfPreference
 $WhatIfPreference = $false
 Import-Module powershell-yaml -ErrorAction SilentlyContinue
-$WhatIfPreference = [bool] $PSBoundParameters['WhatIf']
+$WhatIfPreference = $whatIf
 $config = Read-ReposConfig
 $owner = $config.owner
 if (-not $owner) { throw 'owner vide dans repos.yaml.' }
@@ -145,7 +146,7 @@ if ($project) {
     }
 }
 
-if ($rows.Count) { $rows | Format-Table -AutoSize | Out-Host } else { Write-Host 'Rien à faire : labels et Project sont déjà en place.' }
+if ($rows.Count) { $rows | Format-Table -AutoSize | Out-Host } elseif (-not $WhatIfPreference) { Write-Host 'Rien à faire : labels et Project sont déjà en place.' }
 if ($project) {
     Write-Host "Project : n° $($project.number), https://github.com/users/$owner/projects/$($project.number)"
     Write-Host "À activer à la main (Project → Workflows) : « Item closed » et « Pull request merged » → Fait, « Item reopened » → En cours."
