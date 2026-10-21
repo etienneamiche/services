@@ -24,6 +24,10 @@ param()
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'lib' 'Services.psm1') -Force
 
+# -WhatIf ne doit pas s'appliquer au chargement de powershell-yaml : il afficherait ses alias.
+$WhatIfPreference = $false
+Import-Module powershell-yaml -ErrorAction SilentlyContinue
+$WhatIfPreference = [bool] $PSBoundParameters['WhatIf']
 $config = Read-ReposConfig
 $owner = $config.owner
 if (-not $owner) { throw 'owner vide dans repos.yaml.' }
@@ -31,6 +35,13 @@ $repos = @($config.repos | Where-Object { $_.status -eq 'active' })
 $rows = [System.Collections.Generic.List[object]]::new()
 function Add-Row([string] $target, [string] $state, [string] $detail = '') {
     $rows.Add([pscustomobject]@{ Cible = $target; Etat = $state; Detail = $detail })
+}
+# Une lecture gh qui échoue lève une erreur : une sortie vide ne doit jamais passer pour « rien trouvé »
+# (un label serait supprimé alors qu'il sert, un second Project serait créé).
+function Get-GhJson([string[]] $GhArgs) {
+    $out = gh @GhArgs
+    if ($LASTEXITCODE -ne 0) { throw "lecture impossible : gh $($GhArgs -join ' ')" }
+    if ($out) { $out | ConvertFrom-Json }
 }
 
 $labels = [ordered]@{
@@ -56,8 +67,8 @@ $projectTitle = 'services'
 foreach ($repo in $repos) {
     $full = "$owner/$($repo.name)"
     $existing = @{}
-    foreach ($l in (gh label list --repo $full --limit 200 --json name,color,description | ConvertFrom-Json)) { $existing[$l.name] = $l }
-    if ($LASTEXITCODE -ne 0) { Add-Row $full 'FAIL' 'lecture des labels impossible'; continue }
+    try { foreach ($l in Get-GhJson 'label', 'list', '--repo', $full, '--limit', '200', '--json', 'name,color,description') { $existing[$l.name] = $l } }
+    catch { Add-Row $full 'FAIL' 'lecture des labels impossible'; continue }
 
     foreach ($name in $labels.Keys) {
         $want = $labels[$name]
@@ -71,8 +82,12 @@ foreach ($repo in $repos) {
     }
 
     foreach ($name in $githubDefaults | Where-Object { $existing.ContainsKey($_) }) {
-        $used = @(gh issue list --repo $full --label $name --state all --limit 1 --json number | ConvertFrom-Json).Count +
-                @(gh pr list --repo $full --label $name --state all --limit 1 --json number | ConvertFrom-Json).Count
+        # Dans le doute, on garde le label : le supprimer le retire de toutes les issues et PR, sans retour possible.
+        try {
+            $used = @(Get-GhJson 'issue', 'list', '--repo', $full, '--label', $name, '--state', 'all', '--limit', '1', '--json', 'number').Count +
+                    @(Get-GhJson 'pr', 'list', '--repo', $full, '--label', $name, '--state', 'all', '--limit', '1', '--json', 'number').Count
+        }
+        catch { Add-Row $full 'FAIL' "usage de $name illisible, label gardé"; continue }
         if ($used) { Add-Row $full 'label gardé' "$name (utilisé)"; continue }
         if ($PSCmdlet.ShouldProcess($full, "label $name (retiré, inutilisé)")) {
             gh label delete $name --repo $full --yes | Out-Null
@@ -82,7 +97,9 @@ foreach ($repo in $repos) {
 }
 
 # 2. Le Project unique.
-$project = (gh project list --owner $owner --limit 100 --format json | ConvertFrom-Json).projects | Where-Object title -eq $projectTitle | Select-Object -First 1
+# --closed : un Project fermé est signalé, jamais recréé.
+$project = (Get-GhJson 'project', 'list', '--owner', $owner, '--limit', '100', '--closed', '--format', 'json').projects | Where-Object title -eq $projectTitle | Select-Object -First 1
+if ($project -and $project.closed) { throw "le Project « $projectTitle » (n° $($project.number)) est fermé : le rouvrir dans l'interface web, puis relancer." }
 if (-not $project) {
     if ($PSCmdlet.ShouldProcess("$owner/$projectTitle", 'création du Project (privé)')) {
         $project = gh project create --owner $owner --title $projectTitle --format json | ConvertFrom-Json
@@ -95,10 +112,11 @@ if ($project) {
     $view = gh api graphql -f query='query($login: String!, $n: Int!) { user(login: $login) { projectV2(number: $n) {
         id public items(first: 1) { totalCount } repositories(first: 100) { nodes { name } }
         field(name: "Status") { ... on ProjectV2SingleSelectField { id options { name } } } } } }' -f login=$owner -F n=$n --jq '.data.user.projectV2' | ConvertFrom-Json
+    if ($LASTEXITCODE -ne 0 -or -not $view.id) { throw "lecture du Project n° $n impossible." }
 
     if ($view.public -and $PSCmdlet.ShouldProcess("Project $projectTitle", 'passage en privé')) {
         gh project edit $n --owner $owner --visibility PRIVATE | Out-Null
-        Add-Row "Project $projectTitle" 'rendu privé'
+        if ($LASTEXITCODE -eq 0) { Add-Row "Project $projectTitle" 'rendu privé' } else { Add-Row "Project $projectTitle" 'FAIL' 'passage en privé' }
     }
 
     # Les colonnes : réécrites seulement si elles diffèrent, et seulement sur un Project vide.

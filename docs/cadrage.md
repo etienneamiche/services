@@ -234,7 +234,7 @@ Nos hooks cohabitent sans erreur avec le hook global de codegraph et ceux de pon
 
 **Un seul GitHub Project** pour tout l'écosystème : « services » (n° 1, privé), auquel chaque dépôt actif est rattaché. `scripts/github-setup.ps1` le crée et pose les labels.
 
-- Labels de type, les mêmes sur chaque dépôt : `feature`, `bug`, `harness-update`, `infra`, `integration`, `from-users`. Les labels créés par défaut par GitHub sont retirés.
+- Labels de type, les mêmes sur chaque dépôt : `feature`, `bug`, `harness-update`, `infra`, `integration`, `from-users`. Les labels créés par défaut par GitHub sont retirés, s'ils ne servent à rien.
 - Colonnes : `Idée` → `Prêt` → `En cours` → `En revue` → `Fait`.
 - Les issues sont ajoutées au board par les skills (`gh project item-add`). Une issue créée à la main, depuis le web, n'y arrive pas toute seule.
 - Les automatismes du Project (issue fermée ou PR fusionnée → `Fait`) s'activent dans l'interface web : l'API ne le permet pas.
