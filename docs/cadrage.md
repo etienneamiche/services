@@ -232,11 +232,12 @@ Nos hooks cohabitent sans erreur avec le hook global de codegraph et ceux de pon
 
 ## 7. Flux de travail
 
-**Un seul GitHub Project** pour tout l'écosystème.
+**Un seul GitHub Project** pour tout l'écosystème : « services » (n° 1, privé), auquel chaque dépôt actif est rattaché. `scripts/github-setup.ps1` le crée et pose les labels.
 
-- Labels de type : `feature`, `bug`, `harness-update`, `infra`.
+- Labels de type, les mêmes sur chaque dépôt : `feature`, `bug`, `harness-update`, `infra`, `integration`, `from-users`. Les labels créés par défaut par GitHub sont retirés.
 - Colonnes : `Idée` → `Prêt` → `En cours` → `En revue` → `Fait`.
-- Les issues sont ajoutées au board par script (`gh project item-add`).
+- Les issues sont ajoutées au board par les skills (`gh project item-add`). Une issue créée à la main, depuis le web, n'y arrive pas toute seule.
+- Les automatismes du Project (issue fermée ou PR fusionnée → `Fait`) s'activent dans l'interface web : l'API ne le permet pas.
 - Les **milestones GitHub** correspondent aux versions de `ROADMAP.md`.
 
 ### Skills de projet (écrits maison, courts, sans Superpowers)
@@ -449,6 +450,7 @@ Objectif : mettre aux normes un site développé à côté, **sans tout refaire*
 | `setup-workstation.ps1` | Idempotent, et suit `STARTUP.md`. Profil `dev` : outils de développement, sans accès à l'infra. Profil `admin` : en plus `sops`, `age`, `kubectl`, `tofu`, et une clé age **propre au poste** |
 | `add-workstation-key.ps1` | Ajoute la clé publique d'un poste dans `homelab/.sops.yaml`, puis lance `sops updatekeys`. Il y a ainsi plusieurs clés, une par poste |
 | `pull-all.ps1` | Clone les dépôts manquants et fait un `pull --ff-only` partout. Signale les dépôts modifiés ou en avance |
+| `github-setup.ps1` | Idempotent. Pose les labels communs sur chaque dépôt actif, et crée le GitHub Project unique avec ses colonnes (§7) |
 | `new-project.ps1` | Étape 1 de `/start-project`. Lance aussi **`codegraph init`** |
 | `launch.ps1 <app>` | Délègue au `scripts/launch.ps1` de l'app : Postgres (Docker), `dotnet watch`, `uv run`, `vite`. Auth désactivée en local tant qu'Authentik n'existe pas |
 | `harness-doctor.ps1` | Diagnostic complet du poste, de la racine et de chaque dépôt, avec autotests des hooks (§18) |
