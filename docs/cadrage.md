@@ -255,6 +255,7 @@ Nos hooks cohabitent sans erreur avec le hook global de codegraph et ceux de pon
 | `/audit` | Audit du projet | `auditor` |
 | `/lint` | Nettoie le lint du projet | `linter` |
 | `/retro` | Ce qui a gêné l'agent devient une règle de `AGENTS.md` ou une issue `harness-update` | opus |
+| `/doctor` | Lance le doctor du projet (`.harness/tools/doctor.ps1`) et explique les écarts. À la racine, c'est `harness-doctor.ps1` pour tout l'écosystème | opus |
 | `/help-harness` | L'expert du harness : hooks, modules, versions, mises à jour. Pour un doctor en échec, c'est `/doctor`. Existe aussi à la racine | opus |
 
 ### La revue avant fusion : `/audit-pr`
