@@ -171,6 +171,9 @@
 **Livrables**
 - Le GitHub Project unique, ses colonnes, les labels (`feature`, `bug`, `harness-update`, `infra`, `integration`, `from-users`), les modèles d'issue et de PR.
 - Les skills `/idea`, `/spec`, `/feature`, `/ship`, `/review`, `/audit-pr`, `/lint`, `/release` (en local), `/retro` et `/doctor`.
+- Le skill **`/help-harness`**, dans les projets et à la racine : l'expert du système (harness, hooks, modules, versions, mises à jour, doctor).
+- Le skill racine **`/homelab`** : il connaît l'infra, le réseau, la roadmap et les problèmes du homelab (source : `homelab/docs/`).
+- **Méthode** : chaque skill est construit avec `/anthropic-skills:skill-creator`, avec des cas de test exécutés avec et sans le skill, la visionneuse de revue et la mesure du déclenchement. Les évaluations tournent en mode essai, sans rien publier, et l'espace de travail reste dans `harness/.test/`. Un skill = une issue = une PR sur `harness`.
 - Le format des commits `type(scope): … (#n)`, et git-cliff pour le changelog.
 - **PR obligatoire sur `harness`, les templates et `libs`** : *ruleset* GitHub sur `main` (gratuit, dépôts publics), et `/audit-pr` avant chaque fusion.
 - **Le dépôt `project-ideas`** (cadrage §9 bis) : `IDEAS.md`, `_template.md`, `scripts/idea.ps1`, et le skill racine `/project-idea` (noter une idée, créer sa page).
