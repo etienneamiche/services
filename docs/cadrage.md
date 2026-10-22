@@ -255,6 +255,7 @@ Nos hooks cohabitent sans erreur avec le hook global de codegraph et ceux de pon
 | `/audit` | Audit du projet | `auditor` |
 | `/lint` | Nettoie le lint du projet | `linter` |
 | `/retro` | Ce qui a gêné l'agent devient une règle de `AGENTS.md` ou une issue `harness-update` | opus |
+| `/help-harness` | L'expert du harness : hooks, modules, versions, mises à jour, doctor. Existe aussi à la racine | opus |
 
 ### La revue avant fusion : `/audit-pr`
 
@@ -285,7 +286,7 @@ Nos hooks cohabitent sans erreur avec le hook global de codegraph et ceux de pon
 | `/evolve <besoin>` | Faire évoluer l'écosystème pour un besoin nouveau (§16) |
 | `/doctor` | Lancer `harness-doctor.ps1` et expliquer les écarts (§18) |
 | `/integrate <dépôt>` | Mettre un site existant aux normes (§13) |
-| `/infra <question>` | Répondre sur l'infra à partir de `homelab/docs` et de l'état réel (`kubectl`, `argocd`) |
+| `/homelab <question>` | Répondre sur l'infra, le réseau, la roadmap et les problèmes du homelab, à partir de `homelab/docs` et, une fois la plateforme en place (H1), de l'état réel (`kubectl`, `argocd`) |
 | `/map-infra` | Régénérer la page d'infra de `services-map` |
 | `/audit-all` | Lancer `audit.ps1` et en faire la synthèse |
 
