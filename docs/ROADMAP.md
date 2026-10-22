@@ -171,8 +171,8 @@
 **Livrables**
 - Le GitHub Project unique, ses colonnes, les labels (`feature`, `bug`, `harness-update`, `infra`, `integration`, `from-users`), les modèles d'issue et de PR.
 - Les skills, dans cet ordre : `/audit-pr`, `/ship`, `/review` et `/lint`, `/feature` (qui enchaîne les précédents), `/idea` et `/spec`, puis `/release` (en local), `/retro` et `/doctor`.
-- Le skill **`/help-harness`**, dans les projets et à la racine : l'expert du système (harness, hooks, modules, versions, mises à jour, doctor).
-- Le skill racine **`/homelab`** (cadrage §7) : il connaît l'infra, le réseau, la roadmap et les problèmes du homelab, à partir de `homelab/docs/`. Il lit aussi l'état réel une fois H1 livrée.
+- Le skill **`/help-harness`**, dans les projets et à la racine : l'expert du système (harness, hooks, modules, versions, mises à jour). C'est `/doctor` qui explique un doctor en échec.
+- Le skill racine **`/homelab`** (cadrage §7) : il connaît l'infra, le réseau, la roadmap et les problèmes du homelab, à partir de `homelab/docs/`. La lecture de l'état réel arrive en phase 11.
 - **Méthode** : chaque skill est construit avec `/anthropic-skills:skill-creator`. Pour `/audit-pr`, `/ship` et `/feature`, la boucle est complète : 2 ou 3 cas exécutés avec et sans le skill, comparaison chiffrée, visionneuse de revue et mesure du déclenchement. Pour les autres, une boucle allégée suffit. Les évaluations tournent en mode essai, sans rien publier, et l'espace de travail reste dans `harness/.test/`. Un skill = une issue = une PR sur `harness`.
 - Le format des commits `type(scope): … (#n)`, et git-cliff pour le changelog.
 - **PR obligatoire sur `harness`, les templates et `libs`** : *ruleset* GitHub sur `main` (gratuit, dépôts publics), et `/audit-pr` avant chaque fusion.
@@ -306,6 +306,7 @@ Release **v0.3.0**.
 - `/start-project` étapes 7 et 8 : PR d'infra et v0 déployée.
 - Le service `feedback` (Turnstile, limite de débit, contenu expurgé, GitHub App).
 - `services-map` et `/map-infra`.
+- `/homelab` lit l'état réel de l'infra (`kubectl`, `argocd`, par les wrappers du module `infra`).
 
 **Critère de sortie**
 - Un projet démarré par `/start-project` tourne sur le cluster.
