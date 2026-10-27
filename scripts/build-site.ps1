@@ -327,6 +327,15 @@ else {
 
 $servicesPct = [math]::Round((($donePhases.Count + $(if ($deliverables) { $delivDone / @($deliverables).Count } else { 0 })) / [math]::Max(1, @($phases).Count)) * 100)
 $homelabPct = [math]::Round(($homelabDone.Count / [math]::Max(1, @($homelabPhases).Count)) * 100)
+
+# Une source illisible affiche « — » dans l'en-tête, jamais un chiffre faux : le signalement en dit la cause.
+$kpiPhase = if (-not $phases) { '—' } elseif ($null -eq $current) { 'Terminée' } else { "Phase $current" }
+$kpiServices = if ($phases) { "$servicesPct %" } else { '—' }
+$kpiServicesDetail = if ($phases) { "$($donePhases.Count)/$(@($phases).Count) phases · phase $current : $delivDone/$(@($deliverables).Count) livrables" } else { 'tableau des phases illisible' }
+$kpiHomelab = if ($homelabPhases) { "$homelabPct %" } else { '—' }
+$kpiHomelabDetail = if ($homelabPhases) { "$($homelabDone.Count)/$(@($homelabPhases).Count) phases" } else { 'tableau de la piste illisible' }
+if (-not $phases) { $servicesPct = 0 }
+if (-not $homelabPhases) { $homelabPct = 0 }
 $currentPhase = $phases | Where-Object Id -eq $current
 $generated = Get-Date -Format 'yyyy-MM-dd HH:mm'
 
@@ -476,10 +485,10 @@ footer { color:var(--muted); font-size:12px; margin-top:24px; }
 <h1>État de l'écosystème services</h1>
 <div class="sub">Point d'entrée : chaque section renvoie vers la doc qui fait foi.</div>
 <div class="kpis">
-<div class="kpi"><div class="label">Phase en cours</div><div class="value">Phase $current</div><div class="detail">$(Format-Inline $currentPhase.Theme)</div></div>
-<div class="kpi"><div class="label">Roadmap services</div><div class="value">$servicesPct %</div><div class="detail">$($donePhases.Count)/$(@($phases).Count) phases · phase $current : $delivDone/$(@($deliverables).Count) livrables</div><div class="bar"><i style="width:$servicesPct%"></i></div></div>
-<div class="kpi"><div class="label">Piste homelab</div><div class="value">$homelabPct %</div><div class="detail">$($homelabDone.Count)/$(@($homelabPhases).Count) phases</div><div class="bar"><i style="width:$homelabPct%"></i></div></div>
-<div class="kpi"><div class="label">Harness</div><div class="value">$(if ($harnessVersion) { Enc $harnessVersion } else { '—' })</div><div class="detail">$harnessAhead commit(s) depuis cette version</div></div>
+<div class="kpi"><div class="label">Phase en cours</div><div class="value">$kpiPhase</div><div class="detail">$(Format-Inline $currentPhase.Theme)</div></div>
+<div class="kpi"><div class="label">Roadmap services</div><div class="value">$kpiServices</div><div class="detail">$kpiServicesDetail</div><div class="bar"><i style="width:$servicesPct%"></i></div></div>
+<div class="kpi"><div class="label">Piste homelab</div><div class="value">$kpiHomelab</div><div class="detail">$kpiHomelabDetail</div><div class="bar"><i style="width:$homelabPct%"></i></div></div>
+<div class="kpi"><div class="label">Harness</div><div class="value">$(if ($harnessVersion) { Enc $harnessVersion } else { '—' })</div><div class="detail">$(if ($harnessVersion) { "$harnessAhead commit(s) depuis cette version" } else { 'harness non cloné ou sans tag' })</div></div>
 </div>
 </header>
 <div id="empty" class="empty" hidden>Aucun résultat.</div>
@@ -494,7 +503,7 @@ foreach ($p in $phases) {
     Out-Html "<tr><td>$($p.Id)</td><td>$(Format-Inline $p.Theme)</td><td>$(Format-Inline $p.Deps)</td><td>$(Get-Badge $state)</td></tr>"
 }
 Out-Html '</table></div>'
-Out-Html "<h3>Phase $current : livrables ($delivDone sur $(@($deliverables).Count))</h3><ul class=""check"">"
+Out-Html "<h3>Phase $($site.deliverables.phase) : livrables ($delivDone sur $(@($deliverables).Count))</h3><ul class=""check"">"
 foreach ($d in $deliverables) { Out-Html "<li>$(if ($d.Done) { Get-Badge 'done' } else { Get-Badge 'todo' }) $(Format-Inline $d.Label)</li>" }
 Out-Html '</ul><h3>Piste homelab</h3><div class="table"><table><tr><th>Phase</th><th>Thème</th><th>Dépend de</th><th>État</th></tr>'
 foreach ($p in $homelabPhases) {
@@ -509,7 +518,10 @@ if ($openNote) { Out-Html "<p class=""muted"">$(Enc $openNote)</p>" }
 foreach ($w in $openWork) {
     if (-not $w.Issues -and -not $w.Prs -and -not $w.Failed) { continue }
     $unread = if ($w.Failed) { " · <span class=""badge current"">$(Enc ($w.Failed -join ' et ')) non lues</span>" } else { '' }
-    Out-Html "<h3>$(Enc $w.Repo) <span class=""muted"">· $(@($w.Issues).Count) issue(s), $(@($w.Prs).Count) PR</span>$unread</h3><ul>"
+    # Seules les listes lues sont comptées : une liste non lue n'est pas « 0 ».
+    $counts = @($(if ($w.Failed -notcontains 'issues') { "$(@($w.Issues).Count) issue(s)" }), $(if ($w.Failed -notcontains 'PR') { "$(@($w.Prs).Count) PR" })) | Where-Object { $_ }
+    $countText = if ($counts) { " <span class=""muted"">· $($counts -join ', ')</span>" } else { '' }
+    Out-Html "<h3>$(Enc $w.Repo)$countText$unread</h3><ul>"
     foreach ($pr in $w.Prs) { Out-Html "<li>PR <a href=""$($pr.url)"">#$($pr.number)</a> $(Enc $pr.title) <code>$(Enc $pr.headRefName)</code></li>" }
     foreach ($i in $w.Issues) {
         $labels = ($i.labels | ForEach-Object { "<code>$(Enc $_.name)</code>" }) -join ' '
