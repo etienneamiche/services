@@ -13,6 +13,7 @@
 - **On teste sur du jetable avant le réel.** Un dépôt `harness-sandbox` sert de terrain d'essai jusqu'à la phase 5.
 - **La CI/CD vient à la fin** (phase 10). Avant, tout se vérifie en local, par scripts et par Pester.
 - **Les dépendances à la plateforme k3s** (déploiement, `feedback`, `services-map`) sont regroupées en phase 11. Elles attendent **H1**, la plateforme du homelab (voir « Piste homelab » plus bas).
+- **La page d'état suit les sources.** `scripts/build-site.ps1` génère `site/index.html`, non versionné, à chaque `pull-all.ps1`, à partir de la roadmap, des dépôts, des skills, des scripts et de la doc. Une évolution qui ajoute une commande de terminal, un livrable de la phase en cours ou une étape de déploiement met à jour `docs/site.yaml`, comme la doc. Ce que le script signale « à compléter » se corrige dans les sources.
 
 | Phase | Thème | Dépend de |
 |---|---|---|
@@ -305,7 +306,7 @@ Release **v0.3.0**.
 **Livrables**
 - `/start-project` étapes 7 et 8 : PR d'infra et v0 déployée.
 - Le service `feedback` (Turnstile, limite de débit, contenu expurgé, GitHub App).
-- `services-map` et `/map-infra`.
+- `services-map` et `/map-infra`. `services-map` remplace la page d'état locale (`scripts/build-site.ps1`). D'ici là, cette page reste sur le poste, car elle contient les adresses du homelab. Dès H1, elle peut être servie sur le réseau privé, par Tailscale sur `edge-01`, jamais publiquement.
 - `/homelab` lit l'état réel de l'infra (`kubectl`, `argocd`, par les wrappers du module `infra`).
 
 **Critère de sortie**
