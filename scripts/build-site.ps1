@@ -95,6 +95,7 @@ $roadmapText = Get-Content (Join-Path $root 'docs' 'ROADMAP.md') -Raw
 $phases = foreach ($m in [regex]::Matches($roadmapText, '(?m)^\|\s*(\d+)\s*(✅)?\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*$')) {
     [pscustomobject]@{ Id = [int] $m.Groups[1].Value; Done = $m.Groups[2].Success; Theme = $m.Groups[3].Value; Deps = $m.Groups[4].Value }
 }
+if (-not $phases) { $warnings.Add('docs/ROADMAP.md : tableau des phases introuvable ou illisible') }
 $current = ($phases | Where-Object { -not $_.Done } | Select-Object -First 1).Id
 $donePhases = @($phases | Where-Object Done | ForEach-Object Id)
 
@@ -103,6 +104,7 @@ $homelabPhases = foreach ($m in [regex]::Matches($roadmapText, '(?m)^\|\s*(H\d)\
     $s = if ($state -match '✅') { 'done' } elseif ($state -match '^(À venir|—)$') { 'todo' } else { 'current' }
     [pscustomobject]@{ Id = $m.Groups[1].Value; Theme = $m.Groups[2].Value; Deps = $m.Groups[3].Value; State = $s; Note = ($state -replace '^✅\s*', '') }
 }
+if (-not $homelabPhases) { $warnings.Add('docs/ROADMAP.md : tableau de la piste homelab introuvable ou illisible') }
 $homelabDone = @($homelabPhases | Where-Object State -eq 'done' | ForEach-Object Id)
 
 $reserve = @()
@@ -111,6 +113,7 @@ if ($reserveAt -ge 0) {
     $reserve = foreach ($m in [regex]::Matches($roadmapText.Substring($reserveAt), '(?m)^\|\s*(\*\*.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*$')) {
         [pscustomobject]@{ Subject = $m.Groups[1].Value; Date = $m.Groups[2].Value; Why = $m.Groups[3].Value }
     }
+    if (-not $reserve) { $warnings.Add('docs/ROADMAP.md : tableau « En réserve » illisible') }
 }
 
 # --- Skills, agents, hooks, scripts ---------------------------------------------------------------
@@ -142,6 +145,7 @@ $agents = foreach ($f in Get-ChildItem -LiteralPath (Join-Path $harnessDir 'temp
 $hooks = foreach ($f in Get-ChildItem -LiteralPath (Join-Path $harnessDir 'template' '.harness' 'hooks' 'rules') -Recurse -File -Filter '*.ps1' -ErrorAction SilentlyContinue) {
     $first = (Get-Content -LiteralPath $f.FullName -TotalCount 1) -replace '^#\s*', ''
     $name, $what = $first -split '\s*:\s*', 2
+    if (-not $what) { $warnings.Add("hook $($f.Directory.Name)/$($f.Name) : la première ligne n'a pas la forme « # nom : rôle »"); $what = '' }
     [pscustomobject]@{ Name = $name; Event = $f.Directory.Name; Summary = $what.TrimEnd(',', '.') }
 }
 
@@ -162,7 +166,8 @@ foreach ($g in $scriptGroups) {
 
 $reposRaw = Get-Content (Join-Path $root 'repos.yaml') -Raw
 $repos = foreach ($r in $config.repos) {
-    $phase = if ($reposRaw -match "(?s)- name: $([regex]::Escape($r.name))\s.*?status:\s*\w+\s*#\s*phase\s*(\d+)") { $Matches[1] } else { '' }
+    # Le commentaire « # phase N » de l'entrée du dépôt, sans déborder sur l'entrée suivante.
+    $phase = if ($reposRaw -match "(?s)- name: $([regex]::Escape($r.name))\s(?:(?!- name:).)*?status:\s*\w+[ \t]*#\s*phase\s*(\d+)") { $Matches[1] } else { '' }
     $local = Test-Path (Join-Path $r.fullPath '.git')
     $branch = if ($local) { git -C $r.fullPath branch --show-current } else { '' }
     [pscustomobject]@{ Name = $r.name; Kind = $r.kind; Visibility = $r.visibility; Status = $r.status; Phase = $phase
@@ -188,7 +193,7 @@ function Test-Deliverable($item) {
     $false
 }
 
-if ([int] $site.deliverables.phase -ne $current) {
+if ($phases -and [int] $site.deliverables.phase -ne $current) {
     $warnings.Add("site.yaml : les livrables sont ceux de la phase $($site.deliverables.phase), mais la phase en cours est la $current")
 }
 $deliverables = foreach ($item in $site.deliverables.items) { [pscustomobject]@{ Label = $item.label; Done = Test-Deliverable $item } }
@@ -196,7 +201,7 @@ $delivDone = @($deliverables | Where-Object Done).Count
 
 $knownPhases = @($phases | ForEach-Object Id)
 $steps = foreach ($s in $site.deployment.steps) {
-    if ($knownPhases -notcontains [int] $s.phase) { $warnings.Add("site.yaml : l'étape « $($s.title) » cite la phase $($s.phase), absente de la roadmap") }
+    if ($knownPhases -and $knownPhases -notcontains [int] $s.phase) { $warnings.Add("site.yaml : l'étape « $($s.title) » cite la phase $($s.phase), absente de la roadmap") }
     $state = if (($s.skill -and $skillNames -contains $s.skill) -or $donePhases -contains [int] $s.phase) { 'done' }
              elseif ([int] $s.phase -eq $current) { 'current' } else { 'todo' }
     [pscustomobject]@{ Title = $s.title; Detail = $s.detail; Phase = $s.phase; State = $state }
@@ -247,13 +252,17 @@ if (Test-Path $adressage) {
                                Guest = $m.Groups[3].Value -match '^(VM|LXC)\b' }
         }
     }
+    if (-not $machines) { $warnings.Add('homelab/docs/adressage.md : tableau « Attributions » introuvable ou illisible') }
     $gateway = if ($text -match 'passerelle `([^`]+)`') { $Matches[1] } else { '' }
     $network = if ($text -match 'Réseau de la maison : `([^`]+)`') { $Matches[1] } else { '' }
 }
 else { $warnings.Add('homelab/docs/adressage.md absent : pas de schéma du homelab (dépôt privé non cloné ?)') }
 
 function Get-HomelabSvg {
-    if (-not $machines) { return '<p class="muted">Schéma indisponible : <code>homelab/docs/adressage.md</code> introuvable.</p>' }
+    if (-not $machines) {
+        $why = if (Test-Path $adressage) { 'son tableau « Attributions » est illisible' } else { 'le fichier est introuvable' }
+        return "<p class=""muted"">Schéma indisponible : <code>homelab/docs/adressage.md</code>, $why.</p>"
+    }
     $hosts = @($machines | Where-Object { -not $_.Guest })
     $guests = @($machines | Where-Object Guest)
     $w = 270; $h = 64; $gap = 24
@@ -303,16 +312,20 @@ elseif (-not (Get-Command gh -ErrorAction SilentlyContinue)) { $openNote = 'gh a
 else {
     # Le bac à sable ne porte que des fixtures d'évaluation : il n'est pas du travail ouvert.
     $openWork = foreach ($r in $activeRepos | Where-Object Kind -ne 'sandbox') {
+        # Chaque lecture a son code de sortie : une liste en échec ne doit pas passer pour une liste vide.
         $issues = gh issue list -R "$owner/$($r.Name)" --state open --json number,title,url,labels --limit 100 2>$null | ConvertFrom-Json
+        $issuesOk = $LASTEXITCODE -eq 0
         $prs = gh pr list -R "$owner/$($r.Name)" --state open --json number,title,url,headRefName --limit 50 2>$null | ConvertFrom-Json
-        if ($LASTEXITCODE -ne 0 -and -not $issues -and -not $prs) { $warnings.Add("gh n'a pas pu lire $($r.Name)"); continue }
-        [pscustomobject]@{ Repo = $r.Name; Issues = @($issues); Prs = @($prs) }
+        $prsOk = $LASTEXITCODE -eq 0
+        $failed = @($(if (-not $issuesOk) { 'issues' }), $(if (-not $prsOk) { 'PR' })) | Where-Object { $_ }
+        if ($failed) { $warnings.Add("gh n'a pas pu lire les $($failed -join ' et les ') de $($r.Name)") }
+        [pscustomobject]@{ Repo = $r.Name; Issues = @($issues); Prs = @($prs); Failed = @($failed) }
     }
 }
 
 # --- Page -----------------------------------------------------------------------------------------
 
-$servicesPct = [math]::Round((($donePhases.Count + $(if ($deliverables) { $delivDone / @($deliverables).Count } else { 0 })) / @($phases).Count) * 100)
+$servicesPct = [math]::Round((($donePhases.Count + $(if ($deliverables) { $delivDone / @($deliverables).Count } else { 0 })) / [math]::Max(1, @($phases).Count)) * 100)
 $homelabPct = [math]::Round(($homelabDone.Count / [math]::Max(1, @($homelabPhases).Count)) * 100)
 $currentPhase = $phases | Where-Object Id -eq $current
 $generated = Get-Date -Format 'yyyy-MM-dd HH:mm'
@@ -494,8 +507,9 @@ Out-Html '</table></div></section>'
 Out-Html '<section id="ouvert"><h2>Travail ouvert</h2>'
 if ($openNote) { Out-Html "<p class=""muted"">$(Enc $openNote)</p>" }
 foreach ($w in $openWork) {
-    if (-not $w.Issues -and -not $w.Prs) { continue }
-    Out-Html "<h3>$(Enc $w.Repo) <span class=""muted"">· $(@($w.Issues).Count) issue(s), $(@($w.Prs).Count) PR</span></h3><ul>"
+    if (-not $w.Issues -and -not $w.Prs -and -not $w.Failed) { continue }
+    $unread = if ($w.Failed) { " · <span class=""badge current"">$(Enc ($w.Failed -join ' et ')) non lues</span>" } else { '' }
+    Out-Html "<h3>$(Enc $w.Repo) <span class=""muted"">· $(@($w.Issues).Count) issue(s), $(@($w.Prs).Count) PR</span>$unread</h3><ul>"
     foreach ($pr in $w.Prs) { Out-Html "<li>PR <a href=""$($pr.url)"">#$($pr.number)</a> $(Enc $pr.title) <code>$(Enc $pr.headRefName)</code></li>" }
     foreach ($i in $w.Issues) {
         $labels = ($i.labels | ForEach-Object { "<code>$(Enc $_.name)</code>" }) -join ' '
@@ -503,7 +517,7 @@ foreach ($w in $openWork) {
     }
     Out-Html '</ul>'
 }
-if (-not $openNote -and -not ($openWork | Where-Object { $_.Issues -or $_.Prs })) { Out-Html '<p class="muted">Aucune issue ni PR ouverte.</p>' }
+if (-not $openNote -and -not ($openWork | Where-Object { $_.Issues -or $_.Prs -or $_.Failed })) { Out-Html '<p class="muted">Aucune issue ni PR ouverte.</p>' }
 Out-Html '</section>'
 
 # Déploiement
