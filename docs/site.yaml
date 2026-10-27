@@ -1,0 +1,66 @@
+# Données de la page d'état (scripts/build-site.ps1) : seulement ce qui ne se déduit d'aucune autre source.
+# La roadmap, les dépôts, les skills, les agents, les hooks, les scripts et la doc sont lus directement.
+# Règle (docs/ROADMAP.md) : une évolution qui ajoute une commande de terminal, un livrable de la phase
+# en cours ou une étape de déploiement met ce fichier à jour, comme la doc.
+
+# Livrables de la phase en cours. Chacun est « fait » si son skill existe (harness ou racine),
+# si son dépôt est actif dans repos.yaml, si son tag existe, ou si done: true.
+deliverables:
+  phase: 4
+  items:
+    - { label: "Project, labels, modèles d'issue et de PR", path: harness/template/.github/ISSUE_TEMPLATE }
+    - { label: "/audit-pr", skill: audit-pr }
+    - { label: "/ship", skill: ship }
+    - { label: "/review", skill: review }
+    - { label: "/lint", skill: lint }
+    - { label: "/feature", skill: feature }
+    - { label: "/idea", skill: idea }
+    - { label: "/spec", skill: spec }
+    - { label: "/release (en local)", skill: release }
+    - { label: "/retro", skill: retro }
+    - { label: "/doctor", skill: doctor }
+    - { label: "/help-harness", skill: help-harness }
+    - { label: "/homelab (racine)", skill: homelab }
+    - { label: "Dépôt project-ideas et /project-idea", repo: project-ideas }
+    - { label: "Ruleset GitHub sur main (harness, templates, libs)", done: false }
+    - { label: "Release v0.3.0 du harness", tag: { repo: harness, name: v0.3.0 } }
+
+# Du travail à la production. Une étape est faite quand sa phase est terminée (✅ dans la roadmap),
+# ou quand son skill existe ; sinon en cours (phase en cours) ou à venir.
+deployment:
+  doc: homelab/docs/07-plateforme-k3s-gitops.md
+  section: "§7 Le flux Git, de la branche à la production"
+  steps:
+    - { title: "Idée → issue", detail: "/idea crée l'issue feature, carte « Idée »", phase: 4, skill: idea }
+    - { title: "Spécification", detail: "/spec : critères, impacts, plan ; carte « Prêt »", phase: 4, skill: spec }
+    - { title: "Développement", detail: "/feature : branche feature/<n> depuis develop, dev code et teste, /review et /lint", phase: 4, skill: feature }
+    - { title: "Envoi en revue", detail: "/ship : commit et PR par git-ops, carte « En revue »", phase: 4, skill: ship }
+    - { title: "Revue et fusion", detail: "/audit-pr (auditor), puis merge-pr.ps1 en squash dans develop", phase: 4, skill: audit-pr }
+    - { title: "CI sur les PR et develop", detail: "GitHub Actions : build et tests, ruleset qui impose la CI verte et la revue auditor", phase: 10 }
+    - { title: "Release", detail: "/release : release/x.y.z, CHANGELOG (git-cliff), PR vers main, tag vX.Y.Z, release GitHub, report dans develop", phase: 4, skill: release }
+    - { title: "Images", detail: "CI : image x.y.z-rc.N sur push de release/*, image x.y.z sur le tag, publiées sur GHCR ; version par GitVersion", phase: 10 }
+    - { title: "PR de version dans homelab", detail: "la CI ouvre une PR qui passe version: x.y.z dans homelab (GitHub App en écriture de PR seulement)", phase: 10 }
+    - { title: "Mise en production", detail: "tu fusionnes la PR dans homelab (aucun agent ne fusionne), ArgoCD déploie sur le cluster", phase: 11 }
+    - { title: "Retour arrière", detail: "revert de la PR dans homelab ; une migration de base ne se défait pas (règle de compatibilité)", phase: 11 }
+    - { title: "Mises à jour des dépendances", detail: "Renovate ouvre des PR (images, paquets, charts), correctifs fusionnés automatiquement", phase: 10 }
+
+# Commandes de terminal courantes. Les skills (/feature…) sont lus dans les SKILL.md.
+commands:
+  - group: Poste et dépôts (dans services)
+    items:
+      - { cmd: "./scripts/setup-workstation.ps1 -Check", what: "État des outils du poste, sans rien installer (sans -Check : installe ; -Role dev | admin)", doc: STARTUP.md }
+      - { cmd: "./scripts/pull-all.ps1", what: "Clone les dépôts actifs de repos.yaml, met à jour les autres, puis régénère cette page" }
+      - { cmd: "./scripts/build-site.ps1", what: "Régénère cette page seule (-Offline : sans gh)" }
+      - { cmd: "./scripts/harness-doctor.ps1", what: "Doctor du harness sur tous les dépôts actifs (-Fix, -Deep, -Offline)" }
+      - { cmd: "./scripts/github-setup.ps1", what: "Labels communs et Project « services » sur GitHub" }
+      - { cmd: "./scripts/add-workstation-key.ps1 <clé> <nom>", what: "Ajoute (ou retire, -Remove) la clé age d'un poste aux secrets SOPS" }
+  - group: Projet (harness installé)
+    items:
+      - { cmd: "copier copy --trust gh:etienneamiche/harness <dossier>", what: "Installe le harness dans un nouveau dépôt", doc: harness/README.md }
+      - { cmd: "copier update --trust", what: "Met à jour le harness d'un projet (branche chore/harness-vX.Y.Z)", doc: harness/README.md }
+      - { cmd: ".harness/tools/doctor.ps1", what: "Vérifie le harness du projet (-Fix répare, -Deep lance les autotests Pester)" }
+      - { cmd: "claude", what: "Ouvre Claude Code dans le projet ; les skills (/idea, /feature…) s'y lancent" }
+  - group: Développement du harness (dans harness)
+    items:
+      - { cmd: "pwsh -NoProfile -File tools/test.ps1", what: "Génère chaque archi, passe le doctor et les autotests (-Keep garde les projets)" }
+      - { cmd: "git cliff --bumped-version", what: "Prochaine version selon les commits depuis le dernier tag" }

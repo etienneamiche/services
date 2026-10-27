@@ -7,6 +7,7 @@
     Ne fait jamais que des `pull --ff-only`, et seulement sur un dépôt propre.
     Un dépôt modifié, en avance ou divergent est signalé, jamais touché.
     Les dépôts `status: planned` sont ignorés.
+    À la fin, régénère la page d'état (scripts/build-site.ps1), sauf avec -NoSite.
 
 .EXAMPLE
     ./scripts/pull-all.ps1
@@ -14,7 +15,8 @@
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [switch] $NoFetch
+    [switch] $NoFetch,
+    [switch] $NoSite
 )
 
 $ErrorActionPreference = 'Stop'
@@ -84,4 +86,10 @@ foreach ($repo in $config.repos | Where-Object { $_.status -eq 'active' }) {
 $rows | Format-Table -AutoSize | Out-Host
 $planned = @($config.repos | Where-Object { $_.status -eq 'planned' }).Count
 Write-Host "$planned dépôt(s) prévu(s), ignoré(s)."
+
+# La page d'état suit les dépôts : un échec de génération est signalé sans faire échouer le pull.
+if (-not $NoSite -and -not $WhatIfPreference) {
+    try { & (Join-Path $PSScriptRoot 'build-site.ps1') -Offline:$NoFetch }
+    catch { Write-Warning "page d'état non générée : $($_.Exception.Message)" }
+}
 if ($rows | Where-Object Etat -eq 'FAIL') { exit 1 }
