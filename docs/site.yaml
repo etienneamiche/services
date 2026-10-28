@@ -54,7 +54,7 @@ commands:
       - { cmd: "./scripts/harness-doctor.ps1", what: "Doctor du harness sur tous les dépôts actifs (-Fix, -Deep, -Offline)" }
       - { cmd: "./scripts/github-setup.ps1", what: "Labels communs et Project « services » sur GitHub" }
       - { cmd: "./scripts/add-workstation-key.ps1 <clé> <nom>", what: "Ajoute (ou retire, -Remove) la clé age d'un poste aux secrets SOPS" }
-      - { cmd: "./scripts/claude-kimi.ps1", what: "Lance Claude Code sur Kimi (abonnement Kimi Code) quand les crédits Claude sont épuisés, avec le même harness, depuis le dépôt où l'on travaille (-Check : configuration et harness ; -Probe : requête de test)", doc: "STARTUP.md §10" }
+      - { cmd: "C:\\repo\\services\\scripts\\claude-kimi.ps1", what: "Lance Claude Code sur Kimi (abonnement Kimi Code) quand les crédits Claude sont épuisés, avec le même harness, depuis le dépôt où l'on travaille (-Check : configuration et harness ; -Probe : requête de test)", doc: "STARTUP.md §10" }
   - group: Projet (harness installé)
     items:
       - { cmd: "copier copy --trust gh:etienneamiche/harness <dossier>", what: "Installe le harness dans un nouveau dépôt", doc: harness/README.md }

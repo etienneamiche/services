@@ -36,7 +36,8 @@
     Claude Code.
 
 .PARAMETER Probe
-    Envoie une requête minimale (1 jeton) à l'API avec la clé, l'adresse et le modèle, et n'affiche que le statut
+    Envoie une requête minimale (1 jeton) à l'API avec la clé, l'adresse et chaque modèle (-Model, puis
+    -FastModel s'il est différent), et n'affiche que le statut
     HTTP et, en cas d'erreur, son type et son message : de quoi vérifier l'adresse et l'identifiant du modèle
     avant une vraie session. Puis s'arrête sans lancer Claude Code.
 
@@ -45,11 +46,12 @@
     (-p, -c) se place après `--`, sinon PowerShell la prend pour un paramètre du script.
 
 .EXAMPLE
-    ./scripts/claude-kimi.ps1 -Check
-    ./scripts/claude-kimi.ps1 -Probe
-    C:\repo\services\scripts\claude-kimi.ps1                # depuis le dépôt où l'on travaille
-    ./scripts/claude-kimi.ps1 --continue
-    ./scripts/claude-kimi.ps1 -Model kimi-k3 -- -p "résume la roadmap"
+    Depuis le dépôt où l'on travaille (cd C:\repo\services\homelab, par exemple) :
+    C:\repo\services\scripts\claude-kimi.ps1 -Check
+    C:\repo\services\scripts\claude-kimi.ps1 -Probe
+    C:\repo\services\scripts\claude-kimi.ps1
+    C:\repo\services\scripts\claude-kimi.ps1 --continue
+    C:\repo\services\scripts\claude-kimi.ps1 -Model kimi-k3 -- -p "résume la roadmap"
 #>
 # Pas de liaison par position : un argument libre (--continue) va à claude, pas à -Model.
 [CmdletBinding(PositionalBinding = $false)]
@@ -101,20 +103,26 @@ if ($Probe) {
     if (-not $key) { Write-Host 'claude-kimi : KIMI_API_KEY absente, pas de requête.' -ForegroundColor Red; exit 1 }
     # Le même chemin que Claude Code : l'adresse de base suivie de /v1/messages.
     $uri = $BaseUrl.TrimEnd('/') + '/v1/messages'
-    $body = @{ model = $Model; max_tokens = 1; messages = @(@{ role = 'user'; content = 'ping' }) } | ConvertTo-Json -Depth 4
     $headers = @{ Authorization = "Bearer $key"; 'anthropic-version' = '2023-06-01' }
-    try {
-        $r = Invoke-WebRequest -Uri $uri -Method Post -Headers $headers -ContentType 'application/json' -Body $body -SkipHttpErrorCheck -TimeoutSec 30
+    $failed = $false
+    # Une requête par modèle distinct : celui de la session, puis celui des agents légers (alias haiku).
+    foreach ($m in @($Model, $FastModel) | Select-Object -Unique) {
+        $body = @{ model = $m; max_tokens = 1; messages = @(@{ role = 'user'; content = 'ping' }) } | ConvertTo-Json -Depth 4
+        try {
+            # -Debug:$false et -Verbose:$false sont obligatoires : sous -Debug (ou $DebugPreference = 'Continue'),
+            # Invoke-WebRequest écrit les en-têtes de la requête, donc la clé, dans le flux debug.
+            $r = Invoke-WebRequest -Uri $uri -Method Post -Headers $headers -ContentType 'application/json' -Body $body -SkipHttpErrorCheck -TimeoutSec 30 -Debug:$false -Verbose:$false
+        }
+        catch { Write-Host "claude-kimi : $uri injoignable ($($_.Exception.Message))" -ForegroundColor Red; exit 1 }
+        # Seuls le statut, le modèle rendu ou l'erreur sont affichés : jamais la clé ni les en-têtes.
+        $data = try { $r.Content | ConvertFrom-Json } catch { $null }
+        $detail = if ($r.StatusCode -lt 300) { "modèle rendu : $($data.model)" }
+                  elseif ($data.error) { "$($data.error.type) : $($data.error.message)" }
+                  else { ([string] $r.Content).Substring(0, [Math]::Min(200, ([string] $r.Content).Length)) }
+        $color = if ($r.StatusCode -lt 300) { 'Green' } else { 'Red'; $failed = $true }
+        Write-Host "POST $uri ($m) → HTTP $($r.StatusCode) — $detail" -ForegroundColor $color
     }
-    catch { Write-Host "claude-kimi : $uri injoignable ($($_.Exception.Message))" -ForegroundColor Red; exit 1 }
-    # Seuls le statut, le modèle rendu ou l'erreur sont affichés : jamais la clé ni les en-têtes.
-    $data = try { $r.Content | ConvertFrom-Json } catch { $null }
-    $detail = if ($r.StatusCode -lt 300) { "modèle rendu : $($data.model)" }
-              elseif ($data.error) { "$($data.error.type) : $($data.error.message)" }
-              else { ([string] $r.Content).Substring(0, [Math]::Min(200, ([string] $r.Content).Length)) }
-    $color = if ($r.StatusCode -lt 300) { 'Green' } else { 'Red' }
-    Write-Host "POST $uri ($Model) → HTTP $($r.StatusCode) — $detail" -ForegroundColor $color
-    exit $(if ($r.StatusCode -lt 300) { 0 } else { 1 })
+    exit $(if ($failed) { 1 } else { 0 })
 }
 
 if (-not $key) {

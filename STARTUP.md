@@ -151,8 +151,8 @@ On garde **Claude Code** et on branche seulement son modèle sur l'abonnement Ki
 2. Vérifier dans la console Kimi Code **l'adresse de l'API compatible Anthropic** et **l'identifiant du modèle**. Le script prend par défaut `https://api.kimi.com/coding/` et `kimi-k3.1-pro`. Si la console donne autre chose, poser `KIMI_BASE_URL` et `KIMI_MODEL` de la même façon (et `KIMI_FAST_MODEL` pour un modèle plus léger sur les agents Haiku).
 3. Rouvrir le terminal, puis contrôler, sans lancer Claude Code et sans afficher la clé :
    ```powershell
-   ./scripts/claude-kimi.ps1 -Check      # configuration, et présence d'un harness dans le dossier courant
-   ./scripts/claude-kimi.ps1 -Probe      # une requête minimale : HTTP 200 confirme l'adresse, la clé et le modèle
+   C:\repo\services\scripts\claude-kimi.ps1 -Check   # configuration, et présence d'un harness dans le dossier courant
+   C:\repo\services\scripts\claude-kimi.ps1 -Probe   # une requête par modèle : HTTP 200 confirme l'adresse, la clé et le modèle
    ```
    Une erreur de `-Probe` dit ce qui ne va pas (clé refusée, modèle inconnu…) : corriger `KIMI_BASE_URL` ou `KIMI_MODEL`, puis relancer.
 
