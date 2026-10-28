@@ -140,7 +140,7 @@ Le poste est prêt quand le bilan ne contient plus aucun `FAIL`. `-Deep` lance a
 
 ## 10. Travailler sur Kimi quand les crédits Claude sont épuisés
 
-On garde **Claude Code** et on branche seulement son modèle sur l'abonnement Kimi Code (K3.1 Pro), par l'API compatible Anthropic de Kimi. Les hooks, les skills, les agents et la mémoire de projet restent les mêmes. La CLI Kimi Code, elle, ne lit ni les hooks ni les skills : les garde-fous du harness n'y existent pas.
+On garde **Claude Code** et on branche seulement son modèle sur l'abonnement Kimi Code (K3.1 Pro), par l'API compatible Anthropic de Kimi. Les hooks, les skills, les agents et la mémoire du dépôt où la session est lancée restent les mêmes. La CLI Kimi Code, elle, ne lit ni les hooks ni les skills : les garde-fous du harness n'y existent pas.
 
 **Une fois, sur le poste :**
 
@@ -151,15 +151,18 @@ On garde **Claude Code** et on branche seulement son modèle sur l'abonnement Ki
 2. Vérifier dans la console Kimi Code **l'adresse de l'API compatible Anthropic** et **l'identifiant du modèle**. Le script prend par défaut `https://api.kimi.com/coding/` et `kimi-k3.1-pro`. Si la console donne autre chose, poser `KIMI_BASE_URL` et `KIMI_MODEL` de la même façon (et `KIMI_FAST_MODEL` pour un modèle plus léger sur les agents Haiku).
 3. Rouvrir le terminal, puis contrôler, sans lancer Claude Code et sans afficher la clé :
    ```powershell
-   ./scripts/claude-kimi.ps1 -Check
+   ./scripts/claude-kimi.ps1 -Check      # configuration, et présence d'un harness dans le dossier courant
+   ./scripts/claude-kimi.ps1 -Probe      # une requête minimale : HTTP 200 confirme l'adresse, la clé et le modèle
    ```
+   Une erreur de `-Probe` dit ce qui ne va pas (clé refusée, modèle inconnu…) : corriger `KIMI_BASE_URL` ou `KIMI_MODEL`, puis relancer.
 
-**À chaque session**, depuis `C:\repo\services`, dans le terminal (pas l'application de bureau), pour garder la même mémoire de projet :
+**À chaque session**, dans le terminal (pas l'application de bureau), **depuis le dépôt où l'on travaille**, là où l'on lancerait `claude` d'habitude. Claude Code ne charge que le harness de ce dossier : ses hooks, ses agents, ses skills et sa mémoire. La racine `services` n'a pas encore de harness (phase 9) : une session lancée là n'a ni hooks ni agents, et le script le signale.
 
 ```powershell
-./scripts/claude-kimi.ps1
-./scripts/claude-kimi.ps1 --continue          # une option longue de claude passe telle quelle
-./scripts/claude-kimi.ps1 -- -p "résume"      # une option courte se place après --
+cd C:\repo\services\homelab
+C:\repo\services\scripts\claude-kimi.ps1
+C:\repo\services\scripts\claude-kimi.ps1 --continue          # une option longue de claude passe telle quelle
+C:\repo\services\scripts\claude-kimi.ps1 -- -p "résume"      # une option courte se place après --
 ```
 
 Les variables ne valent que pour cette session : à la sortie de Claude Code, le terminal retrouve son état d'avant, et `claude` seul repart sur Anthropic.
