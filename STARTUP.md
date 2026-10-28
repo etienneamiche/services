@@ -137,3 +137,40 @@ Ansible ne tourne pas nativement sous Windows : il tourne dans **WSL Ubuntu**.
 ```
 
 Le poste est prêt quand le bilan ne contient plus aucun `FAIL`. `-Deep` lance aussi les autotests des hooks de chaque dépôt, `-Offline` évite tout accès réseau.
+
+## 10. Travailler sur Kimi quand les crédits Claude sont épuisés
+
+On garde **Claude Code** et on branche seulement son modèle sur l'abonnement Kimi Code (K3.1 Pro), par l'API compatible Anthropic de Kimi. Les hooks, les skills, les agents et la mémoire du dépôt où la session est lancée restent les mêmes. La CLI Kimi Code, elle, ne lit ni les hooks ni les skills : les garde-fous du harness n'y existent pas.
+
+**Une fois, sur le poste :**
+
+1. Créer une clé dans la console Kimi Code, puis la poser en variable d'environnement utilisateur, sans qu'elle passe par l'historique du terminal :
+   ```powershell
+   [Environment]::SetEnvironmentVariable('KIMI_API_KEY', (Read-Host 'Clé Kimi Code' -MaskInput), 'User')
+   ```
+2. Vérifier dans la console Kimi Code **l'adresse de l'API compatible Anthropic** et **l'identifiant du modèle**. Le script prend par défaut `https://api.kimi.com/coding/` et `kimi-k3.1-pro`. Si la console donne autre chose, poser `KIMI_BASE_URL` et `KIMI_MODEL` de la même façon (et `KIMI_FAST_MODEL` pour un modèle plus léger sur les agents Haiku).
+3. Rouvrir le terminal, puis contrôler, sans lancer Claude Code et sans afficher la clé :
+   ```powershell
+   C:\repo\services\scripts\claude-kimi.ps1 -Check   # configuration, et présence d'un harness dans le dossier courant
+   C:\repo\services\scripts\claude-kimi.ps1 -Probe   # une requête par modèle : HTTP 200 confirme l'adresse, la clé et le modèle
+   ```
+   Une erreur de `-Probe` dit ce qui ne va pas (clé refusée, modèle inconnu…) : corriger `KIMI_BASE_URL`, `KIMI_MODEL` ou `KIMI_FAST_MODEL` (selon le modèle en erreur), puis relancer.
+
+**À chaque session**, dans le terminal (pas l'application de bureau), **depuis le dépôt où l'on travaille**, là où l'on lancerait `claude` d'habitude. Claude Code ne charge que le harness de ce dossier : ses hooks, ses agents, ses skills et sa mémoire. La racine `services` n'a pas encore de harness (phase 9) : une session lancée là n'a ni hooks ni agents, et le script le signale.
+
+```powershell
+cd C:\repo\services\homelab
+C:\repo\services\scripts\claude-kimi.ps1
+C:\repo\services\scripts\claude-kimi.ps1 --continue          # une option longue de claude passe telle quelle
+C:\repo\services\scripts\claude-kimi.ps1 -- -p "résume"      # une option courte se place après --
+```
+
+Les variables ne valent que pour cette session : à la sortie de Claude Code, le terminal retrouve son état d'avant, et `claude` seul repart sur Anthropic.
+
+**Rester cohérent entre les deux modèles :**
+
+- **Rien ne change dans le harness.** Les modèles qu'il impose (`opus` pour `dev`, `architect` et `auditor`, `haiku` pour les autres) deviennent des alias vers les modèles Kimi.
+- **Chaque PR dit quel modèle a codé et lequel a audité**, dans ses points d'attention (par exemple « Codé et audité avec Kimi K3.1 Pro »). Les skills ont été mis au point sur Opus : un autre modèle peut suivre moins bien les consignes longues.
+- **De préférence, `/audit-pr` sur Claude** dès que les crédits reviennent, pour les PR codées sur Kimi. C'est le dernier garde-fou avant la fusion.
+- **Certaines fonctions côté serveur d'Anthropic** (la recherche web, par exemple) peuvent manquer sur Kimi.
+- **`/retro`** montre où le modèle bute : refus de hooks répétés, corrections, constats d'`auditor` qui reviennent.

@@ -209,7 +209,9 @@ $steps = foreach ($s in $site.deployment.steps) {
 
 foreach ($group in $site.commands) {
     foreach ($c in $group.items) {
-        if ($c.cmd -match '^\./scripts/([\w-]+\.ps1)' -and -not (Test-Path (Join-Path $root 'scripts' $Matches[1]))) {
+        # Un script de services/scripts doit exister : ./scripts/x.ps1, scripts/x.ps1 ou …\services\scripts\x.ps1.
+        # Le dossier scripts d'un autre dépôt (…\homelab\scripts\…) n'est pas contrôlé ici.
+        if ($c.cmd -match '(?:(?:^|\s)(?:\.[\\/])?|[\\/]services[\\/])scripts[\\/]([\w-]+\.ps1)' -and -not (Test-Path (Join-Path $root 'scripts' $Matches[1]))) {
             $warnings.Add("site.yaml : la commande « $($c.cmd) » cite un script absent")
         }
     }
