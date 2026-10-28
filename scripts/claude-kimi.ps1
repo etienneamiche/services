@@ -46,16 +46,29 @@
     (-p, -c) se place après `--`, sinon PowerShell la prend pour un paramètre du script.
 
 .EXAMPLE
-    Depuis le dépôt où l'on travaille (cd C:\repo\services\homelab, par exemple) :
     C:\repo\services\scripts\claude-kimi.ps1 -Check
+
+    Depuis le dépôt où l'on travaille (cd C:\repo\services\homelab, par exemple) : la configuration, sans la clé,
+    et la présence d'un harness dans ce dossier.
+
+.EXAMPLE
     C:\repo\services\scripts\claude-kimi.ps1 -Probe
-    C:\repo\services\scripts\claude-kimi.ps1
+
+    Une requête de test par modèle : HTTP 200 confirme l'adresse, la clé et le modèle.
+
+.EXAMPLE
     C:\repo\services\scripts\claude-kimi.ps1 --continue
+
+    Lance Claude Code sur Kimi en reprenant la dernière conversation ; une option longue passe telle quelle.
+
+.EXAMPLE
     C:\repo\services\scripts\claude-kimi.ps1 -Model kimi-k3 -- -p "résume la roadmap"
+
+    Un autre modèle, et une option courte de claude, placée après --.
 #>
-# Pas de liaison par position : un argument libre (--continue) va à claude, pas à -Model.
 [CmdletBinding(PositionalBinding = $false)]
 param(
+    # Pas de liaison par position : un argument libre (--continue) va à claude, pas à -Model.
     [string] $Model = $(if ($env:KIMI_MODEL) { $env:KIMI_MODEL } else { 'kimi-k3.1-pro' }),
     [string] $FastModel = $(if ($env:KIMI_FAST_MODEL) { $env:KIMI_FAST_MODEL } else { '' }),
     [string] $BaseUrl = $(if ($env:KIMI_BASE_URL) { $env:KIMI_BASE_URL } else { 'https://api.kimi.com/coding/' }),

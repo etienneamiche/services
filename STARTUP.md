@@ -154,7 +154,7 @@ On garde **Claude Code** et on branche seulement son modèle sur l'abonnement Ki
    C:\repo\services\scripts\claude-kimi.ps1 -Check   # configuration, et présence d'un harness dans le dossier courant
    C:\repo\services\scripts\claude-kimi.ps1 -Probe   # une requête par modèle : HTTP 200 confirme l'adresse, la clé et le modèle
    ```
-   Une erreur de `-Probe` dit ce qui ne va pas (clé refusée, modèle inconnu…) : corriger `KIMI_BASE_URL` ou `KIMI_MODEL`, puis relancer.
+   Une erreur de `-Probe` dit ce qui ne va pas (clé refusée, modèle inconnu…) : corriger `KIMI_BASE_URL`, `KIMI_MODEL` ou `KIMI_FAST_MODEL` (selon le modèle en erreur), puis relancer.
 
 **À chaque session**, dans le terminal (pas l'application de bureau), **depuis le dépôt où l'on travaille**, là où l'on lancerait `claude` d'habitude. Claude Code ne charge que le harness de ce dossier : ses hooks, ses agents, ses skills et sa mémoire. La racine `services` n'a pas encore de harness (phase 9) : une session lancée là n'a ni hooks ni agents, et le script le signale.
 

@@ -209,7 +209,8 @@ $steps = foreach ($s in $site.deployment.steps) {
 
 foreach ($group in $site.commands) {
     foreach ($c in $group.items) {
-        if ($c.cmd -match '^\./scripts/([\w-]+\.ps1)' -and -not (Test-Path (Join-Path $root 'scripts' $Matches[1]))) {
+        # ./scripts/x.ps1 comme C:\repo\services\scripts\x.ps1 : un script de services/scripts doit exister.
+        if ($c.cmd -match '(?:^|[\\/])scripts[\\/]([\w-]+\.ps1)' -and -not (Test-Path (Join-Path $root 'scripts' $Matches[1]))) {
             $warnings.Add("site.yaml : la commande « $($c.cmd) » cite un script absent")
         }
     }
