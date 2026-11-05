@@ -22,7 +22,7 @@ deliverables:
     - { label: "/help-harness", skill: help-harness }
     - { label: "/homelab (racine)", skill: homelab }
     - { label: "Dépôt project-ideas et /project-idea", repo: project-ideas }
-    - { label: "Ruleset GitHub sur main (harness, templates, libs)", done: false }
+    - { label: "Ruleset GitHub sur main (harness, templates, libs)", done: true }
     - { label: "Release v0.3.0 du harness", tag: { repo: harness, name: v0.3.0 } }
 
 # Du travail à la production. Une étape est faite quand sa phase est terminée (✅ dans la roadmap),
@@ -52,7 +52,7 @@ commands:
       - { cmd: "./scripts/pull-all.ps1", what: "Clone les dépôts actifs de repos.yaml, met à jour les autres, puis régénère cette page" }
       - { cmd: "./scripts/build-site.ps1", what: "Régénère cette page seule (-Offline : sans gh)" }
       - { cmd: "./scripts/harness-doctor.ps1", what: "Doctor du harness sur tous les dépôts actifs (-Fix, -Deep, -Offline)" }
-      - { cmd: "./scripts/github-setup.ps1", what: "Labels communs et Project « services » sur GitHub" }
+      - { cmd: "./scripts/github-setup.ps1", what: "Labels communs, ruleset de main et Project « services » sur GitHub" }
       - { cmd: "./scripts/add-workstation-key.ps1 <clé> <nom>", what: "Ajoute (ou retire, -Remove) la clé age d'un poste aux secrets SOPS" }
       - { cmd: "C:\\repo\\services\\scripts\\claude-kimi.ps1", what: "Lance Claude Code sur Kimi (abonnement Kimi Code) quand les crédits Claude sont épuisés, avec le même harness, depuis le dépôt où l'on travaille (-Check : configuration et harness ; -Probe : requête de test)", doc: "STARTUP.md §10" }
   - group: Projet (harness installé)

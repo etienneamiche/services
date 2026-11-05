@@ -13,6 +13,7 @@
 - **On teste sur du jetable avant le réel.** Un dépôt `harness-sandbox` sert de terrain d'essai jusqu'à la phase 5.
 - **La CI/CD vient à la fin** (phase 10). Avant, tout se vérifie en local, par scripts et par Pester.
 - **Les dépendances à la plateforme k3s** (déploiement, `feedback`, `services-map`) sont regroupées en phase 11. Elles attendent **H1**, la plateforme du homelab (voir « Piste homelab » plus bas).
+- **Un dépôt qui devient actif reçoit ses réglages.** Quand un dépôt passe en `status: active` dans `repos.yaml`, on relance `scripts/github-setup.ps1` : labels, Project et, pour `harness`, les templates et `libs`, le ruleset de `main`. Sans cette relance, `main` reste sans protection, et rien ne le signale.
 - **La page d'état suit les sources.** `scripts/build-site.ps1` génère `site/index.html`, non versionné, à chaque `pull-all.ps1`, à partir de la roadmap, des dépôts, des skills, des scripts et de la doc. Une évolution qui ajoute une commande de terminal, un livrable de la phase en cours ou une étape de déploiement met à jour `docs/site.yaml`, comme la doc. Ce que le script signale « à compléter » se corrige dans les sources.
 
 | Phase | Thème | Dépend de |
