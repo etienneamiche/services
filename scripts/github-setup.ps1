@@ -1,13 +1,16 @@
 #Requires -Version 7.4
 <#
 .SYNOPSIS
-    Pose les labels communs sur les dépôts actifs, et crée le GitHub Project unique de l'écosystème.
+    Pose les labels communs et le ruleset de `main`, et crée le GitHub Project unique de l'écosystème.
 
 .DESCRIPTION
     Se relance sans risque : chaque étape vérifie l'état avant d'agir.
     - Labels : les six labels du cadrage sur chaque dépôt `status: active` de repos.yaml,
       créés ou remis au bon format. Les labels créés par défaut par GitHub sont retirés, seulement
       si aucune issue ni PR ne les utilise.
+    - Ruleset : sur chaque dépôt actif et public de type harness, template ou libs, `main` exige une
+      PR fusionnée en squash, refuse le force-push et la suppression, et personne ne contourne la
+      règle. Il est créé, ou remis au bon format s'il a été modifié.
     - Project : « services », privé, avec un champ Status à cinq colonnes (Idée → Fait), et les dépôts
       actifs rattachés. Les colonnes ne sont réécrites que tant que le Project est vide : le faire
       plus tard effacerait le statut des cartes.
@@ -64,6 +67,42 @@ $statuses = @(
 )
 $projectTitle = 'services'
 
+# Aucune approbation requise : personne d'autre ne peut approuver, et auditor publie un simple commentaire.
+# Aucun contournement : les agents utilisent le compte de l'utilisateur, ils en profiteraient aussi.
+$rulesetKinds = 'harness', 'template', 'libs'
+$rulesetName = 'main : PR obligatoire'
+$prParameters = [ordered]@{
+    required_approving_review_count   = 0
+    dismiss_stale_reviews_on_push     = $false
+    require_code_owner_review         = $false
+    require_last_push_approval        = $false
+    required_review_thread_resolution = $false
+    allowed_merge_methods             = @('squash')
+}
+$ruleset = [ordered]@{
+    name          = $rulesetName
+    target        = 'branch'
+    enforcement   = 'active'
+    bypass_actors = @()
+    # Le nom exact, pas ~DEFAULT_BRANCH : celui-ci vise develop sur un dépôt gitflow, et laisserait main libre.
+    conditions    = @{ ref_name = @{ include = @('refs/heads/main'); exclude = @() } }
+    rules         = @(
+        @{ type = 'deletion' }
+        @{ type = 'non_fast_forward' }
+        @{ type = 'pull_request'; parameters = $prParameters }
+    )
+}
+function Test-RulesetCurrent($have) {
+    if ($have.enforcement -ne 'active' -or $have.bypass_actors) { return $false }
+    if ((@($have.conditions.ref_name.include) -join ',') -ne (@($ruleset.conditions.ref_name.include) -join ',')) { return $false }
+    if ((@($have.rules.type | Sort-Object) -join ',') -ne (@($ruleset.rules.type | Sort-Object) -join ',')) { return $false }
+    $current = ($have.rules | Where-Object type -eq 'pull_request').parameters
+    foreach ($key in $prParameters.Keys) {
+        if ((@($current.$key) -join ',') -ne (@($prParameters[$key]) -join ',')) { return $false }
+    }
+    $true
+}
+
 # 1. Labels, dépôt par dépôt.
 foreach ($repo in $repos) {
     $full = "$owner/$($repo.name)"
@@ -97,7 +136,24 @@ foreach ($repo in $repos) {
     }
 }
 
-# 2. Le Project unique.
+# 2. Le ruleset de main. Un dépôt privé n'y a pas droit sur GitHub Free.
+foreach ($repo in $repos | Where-Object { $_.kind -in $rulesetKinds -and $_.visibility -eq 'public' }) {
+    $full = "$owner/$($repo.name)"
+    try {
+        $found = Get-GhJson 'api', "repos/$full/rulesets" | Where-Object name -eq $rulesetName | Select-Object -First 1
+        $have = if ($found) { Get-GhJson 'api', "repos/$full/rulesets/$($found.id)" }
+    }
+    catch { Add-Row $full 'FAIL' 'lecture des rulesets impossible'; continue }
+    if ($have -and (Test-RulesetCurrent $have)) { continue }
+
+    $verb, $method, $path = if ($have) { 'remis au format', 'PUT', "repos/$full/rulesets/$($have.id)" } else { 'créé', 'POST', "repos/$full/rulesets" }
+    if ($PSCmdlet.ShouldProcess($full, "ruleset « $rulesetName » ($verb)")) {
+        $ruleset | ConvertTo-Json -Depth 6 | gh api -X $method $path --input - | Out-Null
+        if ($LASTEXITCODE -eq 0) { Add-Row $full "ruleset $verb" $rulesetName } else { Add-Row $full 'FAIL' "ruleset $rulesetName" }
+    }
+}
+
+# 3. Le Project unique.
 # --closed : un Project fermé est signalé, jamais recréé.
 $project = (Get-GhJson 'project', 'list', '--owner', $owner, '--limit', '100', '--closed', '--format', 'json').projects | Where-Object title -eq $projectTitle | Select-Object -First 1
 if ($project -and $project.closed) { throw "le Project « $projectTitle » (n° $($project.number)) est fermé : le rouvrir dans l'interface web, puis relancer." }
@@ -146,7 +202,7 @@ if ($project) {
     }
 }
 
-if ($rows.Count) { $rows | Format-Table -AutoSize | Out-Host } elseif (-not $WhatIfPreference) { Write-Host 'Rien à faire : labels et Project sont déjà en place.' }
+if ($rows.Count) { $rows | Format-Table -AutoSize | Out-Host } elseif (-not $WhatIfPreference) { Write-Host 'Rien à faire : labels, ruleset et Project sont déjà en place.' }
 if ($project) {
     Write-Host "Project : n° $($project.number), https://github.com/users/$owner/projects/$($project.number)"
     Write-Host "À activer à la main (Project → Workflows) : « Item closed » et « Pull request merged » → Fait, « Item reopened » → En cours."
