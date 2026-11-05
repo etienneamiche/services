@@ -186,7 +186,7 @@
 - **chaque PR reçoit une revue complète de `auditor` (Opus) avant sa fusion**. Une fusion tentée sans elle, ou après un nouveau commit, est refusée par `git-guard` ;
 - le board suit l'avancement.
 
-Pour `project-ideas` : une idée notée par `/project-idea`, une autre par `idea.ps1`, une troisième depuis l'interface web de GitHub. Les trois apparaissent dans `IDEAS.md`, et l'une d'elles reçoit sa page.
+Pour `project-ideas` : une idée notée par `/project-idea`, une autre par `idea.ps1`, une troisième depuis l'interface web de GitHub. Les trois apparaissent dans `IDEAS.md`, et l'une d'elles reçoit sa page. Le harness racine n'arrivant qu'en phase 9, `/project-idea` se lance depuis un projet `kind: root` généré, qui contient un clone de `project-ideas`.
 
 Release **v0.3.0**.
 
