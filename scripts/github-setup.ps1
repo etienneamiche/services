@@ -100,6 +100,7 @@ function Test-RulesetCurrent($have) {
     }
     if ((@($have.rules.type | Sort-Object) -join ',') -ne (@($ruleset.rules.type | Sort-Object) -join ',')) { return $false }
     $current = ($have.rules | Where-Object type -eq 'pull_request').parameters
+    if ($current.required_reviewers) { return $false }
     foreach ($key in $prParameters.Keys) {
         if ((@($current.$key) -join ',') -ne (@($prParameters[$key]) -join ',')) { return $false }
     }
