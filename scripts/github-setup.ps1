@@ -93,8 +93,11 @@ $ruleset = [ordered]@{
     )
 }
 function Test-RulesetCurrent($have) {
-    if ($have.enforcement -ne 'active' -or $have.bypass_actors) { return $false }
-    if ((@($have.conditions.ref_name.include) -join ',') -ne (@($ruleset.conditions.ref_name.include) -join ',')) { return $false }
+    if ($have.target -cne $ruleset.target -or $have.enforcement -cne $ruleset.enforcement -or $have.bypass_actors) { return $false }
+    # -cne : les refs Git sont sensibles à la casse. Une exclusion ajoutée retirerait toute la protection.
+    foreach ($side in 'include', 'exclude') {
+        if ((@($have.conditions.ref_name.$side) -join ',') -cne (@($ruleset.conditions.ref_name.$side) -join ',')) { return $false }
+    }
     if ((@($have.rules.type | Sort-Object) -join ',') -ne (@($ruleset.rules.type | Sort-Object) -join ',')) { return $false }
     $current = ($have.rules | Where-Object type -eq 'pull_request').parameters
     foreach ($key in $prParameters.Keys) {
