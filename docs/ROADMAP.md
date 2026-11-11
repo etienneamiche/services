@@ -184,12 +184,26 @@
 - chaque commit et chaque PR sont faits par `git-ops` (Haiku) ;
 - le code est écrit par `dev` (Opus) ;
 - la revue du diff est faite par `reviewer` (Haiku), et l'exploration du code par `explorer` (Haiku) ;
-- **chaque PR reçoit une revue complète de `auditor` (Opus) avant sa fusion**. Une fusion tentée sans elle, ou après un nouveau commit, est refusée par `git-guard` ;
+- **chaque PR reçoit une revue complète de `auditor` (Opus) avant sa fusion**. Une fusion tentée sans elle, ou après un nouveau commit, est refusée : `git-guard` refuse `gh pr merge`, et `merge-pr.ps1` exige la revue sur le dernier commit ;
 - le board suit l'avancement.
 
 Pour `project-ideas` : une idée notée par `/project-idea`, une autre par `idea.ps1`, une troisième depuis l'interface web de GitHub. Les trois apparaissent dans `IDEAS.md`, et l'une d'elles reçoit sa page. Le harness racine n'arrivant qu'en phase 9, `/project-idea` se lance depuis un projet `kind: root` généré, qui contient un clone de `project-ideas`.
 
 Release **v0.3.0**.
+
+**Bilan (2026-11-11)**
+- **Livrés dans `harness`** : 13 skills (`/audit-pr`, `/ship`, `/review`, `/lint`, `/feature`, `/idea`, `/spec`, `/release`, `/retro`, `/doctor`, `/help-harness`, et à la racine `/homelab` et `/project-idea`), les modèles d'issue et de PR, `board.ps1`. Chaque skill a eu son banc dans `harness/.test/` et sa revue `auditor` avant fusion. Le ruleset `main : PR obligatoire` protège `harness` ([services#14](https://github.com/etienneamiche/services/pull/14)).
+- **`project-ideas`** : trois idées notées, par `idea.ps1`, par `/project-idea` et depuis l'interface web, et l'une d'elles a reçu sa page.
+- **Trois issues fictives** de `harness-sandbox` (#16 minuteur, #17 journal, #18 résumé de la semaine) sont allées de `Idée` à `Fait` par de vrais passages `claude -p`. Les transcripts confirment les modèles : `git-ops`, `reviewer` et `explorer` en Haiku, `dev` et `auditor` en Opus. Toutes les écritures Git et GitHub sont passées par `git-ops`. `auditor` a rendu 5 verdicts sur les 3 PR, dont un `changes` qui a bloqué la PR #20 jusqu'à sa correction. `gh pr merge` a été refusé par `git-guard`, et `merge-pr.ps1` a refusé une fusion sans revue puis une fusion après un nouveau commit.
+- **Corrigés en route** : `git-guard` laissait passer les interdits confiés à un autre shell (`bash -c`, `pwsh -Command`, tube vers un shell), corrigé après six passages de revue ([harness#61](https://github.com/etienneamiche/harness/pull/61)) ; `destructive-guard` ne retenait que la première commande confirmée d'une session ([harness#64](https://github.com/etienneamiche/harness/pull/64)).
+- **Réserves** :
+  - le board suit l'avancement jusqu'à `En revue`, mais la colonne `Fait` a été posée par `board.ps1`, car les automatismes du Project sont désactivés ;
+  - `linter` n'a jamais servi : aucun lint n'existe pour PowerShell, la langue de tous les scripts ;
+  - tout a tourné en `claude -p` sous Windows, avec des validations écrites d'avance : une session interactive n'a pas été essayée.
+- **Leçons** :
+  - pour une règle de hook, comparer l'ancienne et la nouvelle version sur des dizaines de milliers de commandes assemblées avant de pousser : c'est cette comparaison, et non des essais à la main, qui a trouvé les régressions de `git-guard` ;
+  - découper un long passage en plusieurs prompts limite la perte quand une limite d'usage le coupe ;
+  - `auditor`, sans l'outil Write, écrit son commentaire dans une commande shell, que les hooks peuvent refuser : deux verdicts ont dû être publiés par la session principale ([harness#57](https://github.com/etienneamiche/harness/issues/57)).
 
 ---
 
