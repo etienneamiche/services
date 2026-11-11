@@ -216,7 +216,7 @@ services/docs/catalog/
 | Règle | Événement | Effet | Origine |
 |---|---|---|---|
 | `model-guard` | `PreToolUse` sur `Agent` | **Refuse** tout `subagent_type` hors liste blanche (y compris `general-purpose`), et **tout appel qui contient un paramètre `model`**, puisqu'il écraserait le modèle de l'agent | maison |
-| `git-guard` | `PreToolUse` sur `Bash`/`PowerShell` | Refuse `git commit`, `git push`, `gh pr *`, `gh issue create` et `gh release` **hors du subagent `git-ops`**. Refuse aussi `git worktree`, `rebase -i`, `push --force`, `--no-verify`, le push direct sur `main`/`develop`, la fusion d'une PR `homelab`, et un message de commit sans `(#n)`. **Refuse `gh pr merge` si la PR n'a pas de revue `auditor` approuvée sur son dernier commit** (§7) | maison + ECC |
+| `git-guard` | `PreToolUse` sur `Bash`/`PowerShell` | Refuse `git commit`, `git push`, `gh pr *`, `gh issue create` et `gh release` **hors du subagent `git-ops`**. Refuse aussi `git worktree`, `rebase -i`, `push --force`, `--no-verify`, le push direct sur `main`/`develop`, la fusion d'une PR `homelab`, et un message de commit sans `(#n)`. **Refuse tout `gh pr merge` : une PR se fusionne par `.harness/tools/merge-pr.ps1`, qui exige une revue `auditor` approuvée sur son dernier commit** (§7) | maison + ECC |
 | `destructive-guard` | `PreToolUse` sur `Bash`/`PowerShell` | Au premier essai de `rm -rf`, `git reset --hard`, `tofu destroy`, `kubectl delete` ou `DROP TABLE` : refus. L'agent doit lister ce qui sera touché, donner un plan de retour arrière et citer ta demande. Le second essai passe | ECC |
 | `config-protection` | `PreToolUse` sur `Edit`/`Write` | Bloque la modification des configs de lint et de format, de `.harness/**`, `.claude/settings.json`, `.github/workflows/**` et `.sops.yaml`. On les change par `/upstream` | ECC, étendu |
 | `secret-guard` | `PreToolUse` + `UserPromptSubmit` | Refuse `sops -d` vers la sortie standard et la lecture de `.env`, `*.key`, `*.pem` et des clés age. Détecte les jetons collés dans un prompt. Détail des 7 couches : §17 | maison + ECC |
@@ -237,7 +237,7 @@ Nos hooks cohabitent sans erreur avec le hook global de codegraph et ceux de pon
 - Labels de type, les mêmes sur chaque dépôt : `feature`, `bug`, `harness-update`, `infra`, `integration`, `from-users`. Les labels créés par défaut par GitHub sont retirés, s'ils ne servent à rien.
 - Colonnes : `Idée` → `Prêt` → `En cours` → `En revue` → `Fait`.
 - Les issues sont ajoutées au board par les skills (`gh project item-add`). Une issue créée à la main, depuis le web, n'y arrive pas toute seule.
-- Les automatismes du Project (issue fermée ou PR fusionnée → `Fait`) s'activent dans l'interface web : l'API ne le permet pas.
+- Les automatismes du Project (issue fermée ou PR fusionnée → `Fait`, issue rouverte → `En cours`) s'activent dans l'interface web : l'API ne le permet pas. Aucun skill ne passe une carte en `Fait` : sans ces automatismes, elle reste en `En revue` après la fusion, et seul `board.ps1`, lancé par `git-ops`, l'y place.
 - Les **milestones GitHub** correspondent aux versions de `ROADMAP.md`.
 
 ### Skills de projet (écrits maison, courts, sans Superpowers)
@@ -272,7 +272,7 @@ Nos hooks cohabitent sans erreur avec le hook global de codegraph et ceux de pon
 
 **Le résultat** est publié en commentaire sur la PR : verdict (`approuvée` ou `changements demandés`), constats classés par gravité, et le SHA du commit relu. Un marqueur invisible (`<!-- auditor: sha=<sha> verdict=approve -->`) permet aux scripts de le lire.
 
-**La règle est bloquante, pas déclarative.** `git-guard` refuse `gh pr merge` tant que le dernier commit de la PR n'a pas de verdict `approve` de `auditor`. Un commit poussé après la revue invalide l'approbation : il faut relancer `/audit-pr`.
+**La règle est bloquante, pas déclarative.** `git-guard` refuse tout `gh pr merge`. Une PR se fusionne par `.harness/tools/merge-pr.ps1`, qui refuse tant que le dernier commit de la PR n'a pas de verdict `approve` de `auditor`, puis fusionne ce commit et lui seul. Un commit poussé après la revue invalide l'approbation : il faut relancer `/audit-pr`. Retoucher la description de la PR ne l'invalide pas.
 
 **Le circuit d'une feature :** `/feature` → `/review` (autant de fois que nécessaire) → `/ship` (PR) → **`/audit-pr`** → corrections éventuelles et nouvel `/audit-pr` → fusion par `git-ops`.
 
