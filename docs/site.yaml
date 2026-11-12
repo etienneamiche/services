@@ -6,24 +6,16 @@
 # Livrables de la phase en cours. Chacun est « fait » si son skill existe (harness ou racine),
 # si son dépôt est actif dans repos.yaml, si son tag existe, ou si done: true.
 deliverables:
-  phase: 4
+  phase: 5
   items:
-    - { label: "Project, labels, modèles d'issue et de PR", path: harness/template/.github/ISSUE_TEMPLATE }
-    - { label: "/audit-pr", skill: audit-pr }
-    - { label: "/ship", skill: ship }
-    - { label: "/review", skill: review }
-    - { label: "/lint", skill: lint }
-    - { label: "/feature", skill: feature }
-    - { label: "/idea", skill: idea }
-    - { label: "/spec", skill: spec }
-    - { label: "/release (en local)", skill: release }
-    - { label: "/retro", skill: retro }
-    - { label: "/doctor", skill: doctor }
-    - { label: "/help-harness", skill: help-harness }
-    - { label: "/homelab (racine)", skill: homelab }
-    - { label: "Dépôt project-ideas et /project-idea", repo: project-ideas }
-    - { label: "Ruleset GitHub sur main (harness, templates, libs)", done: true }
-    - { label: "Release v0.3.0 du harness", tag: { repo: harness, name: v0.3.0 } }
+    - { label: "template-react", repo: template-react }
+    - { label: "Module react du harness, validé sur template-react", done: false }
+    - { label: "Monorepo libs et @marblestudio/ui (thèmes tech, app, spare)", repo: libs }
+    - { label: "Playground de thèmes, en local", done: false }
+    - { label: "new-project.ps1, sans étape d'infra, avec codegraph init", path: scripts/new-project.ps1 }
+    - { label: "launch.ps1, à la racine et dans le projet", path: scripts/launch.ps1 }
+    - { label: "setup-workstation.ps1 : pnpm par corepack, Node 24 LTS", done: false }
+    - { label: "Options de template-react : api, auth, google, realtime", done: false }
 
 # Du travail à la production. Une étape est faite quand sa phase est terminée (✅ dans la roadmap),
 # ou quand son skill existe ; sinon en cours (phase en cours) ou à venir.
