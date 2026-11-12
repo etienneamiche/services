@@ -106,6 +106,18 @@ L'auth et la base sont des **options**, pas des archis à part. Le jeu multijoue
 - **Fichiers du template** (régénérés à chaque mise à jour) : `.harness/**`, `.claude/agents/**`, `.claude/skills/**`, les hooks, les workflows CI.
 - **Fichiers du projet** (créés une fois, jamais écrasés) : `AGENTS.md`, `ARCHITECTURE.md`, `ROADMAP.md`, `docs/**`, le code métier.
 
+### Assembler les briques : `new-project.ps1`
+
+Copier ne compose pas plusieurs templates de lui-même. C'est `new-project.ps1` qui assemble un projet.
+
+- **L'archi se décrit une seule fois**, dans le bloc `archi` de `repos.yaml` : `frontend` (`react` · `none`), `backend` (`dotnet` · `python` · `none`), `postgres`, `auth`. Tout le reste en est déduit.
+- **`new-project.ps1` porte la liste des archis acceptées** (le tableau ci-dessus). Il refuse une combinaison absente de la liste, puis lance un `copier copy` pour le harness et un par template, dans son dossier (`frontend/`, `backend/`). Il passe les réponses déduites par `--data`, donc on ne répond jamais deux fois à la même question.
+- **Le harness ne connaît que ses `modules`.** `new-project.ps1` les déduit de `archi` (`frontend: react` → `react`, `backend: dotnet` → `dotnet`…). Le harness ne lit pas `archi`.
+- **Les briques se parlent par des questions cachées** (`when: false`) de chaque template : `has_frontend`, `has_backend`, `api` (`openapi` · `none`), `auth`, les ports. Par exemple, front + back donne `api: openapi` et un client généré côté React, et front seul donne `api: none`.
+- **Chaque fichier a un seul propriétaire.** Un template n'écrit que dans son dossier. Les fichiers communs à la racine (`scripts/launch.ps1`, `scripts/test.ps1`, CI, `.gitignore`) viennent du harness, qui les construit à partir des `module.json` des modules présents. Postgres est une option de `template-dotnet` : son `docker-compose` vit dans `backend/`, et le module `dotnet` le démarre au lancement.
+- **Une brique s'ajoute après coup** : `new-project.ps1 -Add <brique>` applique le template dans son dossier, met à jour les `modules` du harness (`copier update --data`) et le bloc `archi`. Passer de « .NET seul » à « .NET + React » ne crée pas de nouveau projet. Ce mode arrive en phase 6, avec le deuxième template. Dès la phase 5, `template-react` a ses questions cachées.
+- **Chaque archi de la liste est testée** : générée, lancée, et validée par le doctor (critères des phases 5 et 6, puis la CI de `harness` en phase 10).
+
 ---
 
 ## 4. Contenu du harness, dans un projet
@@ -474,7 +486,7 @@ Objectif : mettre aux normes un site développé à côté, **sans tout refaire*
 | Outil | Place |
 |---|---|
 | **codegraph** | Conservé, initialisé sur **chaque** projet. `.codegraph/` est ignoré par Git. Les subagents qui lisent du code ont accès à `mcp__codegraph__*`. Le hook global n'est pas dupliqué |
-| **ponytail** | Intégré **partout** : déclaré dans le `settings.json` du harness |
+| **ponytail** | Intégré **partout** : déclaré dans le `settings.json` du harness, qui impose le mode `full` (`PONYTAIL_DEFAULT_MODE`). Ses règles ne vont qu'aux subagents qui écrivent ou jugent du code : `dev`, `reviewer`, `auditor`, `architect`, `db-ops` (`PONYTAIL_SUBAGENT_MATCHER`). `reviewer` et `auditor` signalent la sur-ingénierie |
 | **impeccable** | Reste global. Ses agents en `inherit` passent sur Opus |
 | **unity-mcp** | Hors harness : les jeux sont des projets web React |
 
