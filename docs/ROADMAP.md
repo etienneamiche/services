@@ -22,7 +22,7 @@
 | 1 ✅ | Spike : valider les hypothèses Claude Code | 0 |
 | 2 ✅ | Harness cœur, hooks, doctor | 1 |
 | 3 ✅ | Conventions de code | 2 |
-| 4 | Process de travail : issues, Project, skills | 2, 3 |
+| 4 ✅ | Process de travail : issues, Project, skills | 2, 3 |
 | 5 | `template-react`, `libs/ui`, thèmes, *playground* | 4 |
 | 6 | `template-dotnet`, `template-python`, secrets de dev | 5 |
 | 7 | `template-game-multi` | 6 |
@@ -166,7 +166,7 @@
 
 ---
 
-## Phase 4 — Process de travail : issues, Project et skills
+## Phase 4 — Process de travail : issues, Project et skills ✅
 
 **Objectif.** Le circuit complet d'une idée jusqu'à la PR, **sans CI**.
 
@@ -195,6 +195,7 @@ Release **v0.3.0**.
 - **Livrés dans `harness`** : 13 skills (`/audit-pr`, `/ship`, `/review`, `/lint`, `/feature`, `/idea`, `/spec`, `/release`, `/retro`, `/doctor`, `/help-harness`, et à la racine `/homelab` et `/project-idea`), les modèles d'issue et de PR, `board.ps1`. Chaque skill a eu son banc dans `harness/.test/` et sa revue `auditor` avant fusion. Le ruleset `main : PR obligatoire` protège `harness` ([services#14](https://github.com/etienneamiche/services/pull/14)).
 - **`project-ideas`** : trois idées notées, par `idea.ps1`, par `/project-idea` et depuis l'interface web, et l'une d'elles a reçu sa page.
 - **Trois issues fictives** de `harness-sandbox` (#16 minuteur, #17 journal, #18 résumé de la semaine) sont allées de `Idée` à `Fait` par de vrais passages `claude -p`. Les transcripts confirment les modèles : `git-ops`, `reviewer` et `explorer` en Haiku, `dev` et `auditor` en Opus. Toutes les écritures Git et GitHub sont passées par `git-ops`. `auditor` a rendu 5 verdicts sur les 3 PR, dont un `changes` qui a bloqué la PR #20 jusqu'à sa correction. `gh pr merge` a été refusé par `git-guard`, et `merge-pr.ps1` a refusé une fusion sans revue puis une fusion après un nouveau commit.
+- **[v0.3.0](https://github.com/etienneamiche/harness/releases/tag/v0.3.0) publiée le 2026-11-12**, avec sa première release GitHub. `/release` vise les projets générés : le dépôt `harness` n'a ni `cliff.toml` ni `git-ops`, et ses étapes ont été suivies à la main. Le premier passage d'`auditor` a demandé un ajout au CHANGELOG et trouvé `/audit-pr` en retard sur le squash des releases hors gitflow ([harness#68](https://github.com/etienneamiche/harness/pull/68)). La PR de release a été fusionnée sans second passage, par choix. `harness-sandbox` est en v0.3.0 ([harness-sandbox#23](https://github.com/etienneamiche/harness-sandbox/pull/23)).
 - **Corrigés en route** : `git-guard` laissait passer les interdits confiés à un autre shell (`bash -c`, `pwsh -Command`, tube vers un shell), corrigé après six passages de revue ([harness#61](https://github.com/etienneamiche/harness/pull/61)) ; `destructive-guard` ne retenait que la première commande confirmée d'une session ([harness#64](https://github.com/etienneamiche/harness/pull/64)).
 - **Réserves** :
   - le board suit l'avancement jusqu'à `En revue`, mais la colonne `Fait` a été posée par `board.ps1`, car les automatismes du Project sont désactivés ;
