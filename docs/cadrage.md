@@ -486,7 +486,7 @@ Objectif : mettre aux normes un site développé à côté, **sans tout refaire*
 | Outil | Place |
 |---|---|
 | **codegraph** | Conservé, initialisé sur **chaque** projet. `.codegraph/` est ignoré par Git. Les subagents qui lisent du code ont accès à `mcp__codegraph__*`. Le hook global n'est pas dupliqué |
-| **ponytail** | Intégré **partout** : déclaré dans le `settings.json` du harness, qui impose le mode `full` (`PONYTAIL_DEFAULT_MODE`). Ses règles ne vont qu'aux subagents qui écrivent ou jugent du code : `dev`, `reviewer`, `auditor`, `architect`, `db-ops` (`PONYTAIL_SUBAGENT_MATCHER`). `reviewer` et `auditor` signalent la sur-ingénierie |
+| **ponytail** | Intégré **partout** : déclaré dans le `settings.json` du harness, qui impose le mode `full` (`PONYTAIL_DEFAULT_MODE`). Ses règles ne vont qu'aux subagents qui conçoivent, écrivent ou relisent du code : `dev`, `reviewer`, `auditor`, `architect`, `db-ops` (`PONYTAIL_SUBAGENT_MATCHER`). `linter`, dont les corrections sont mécaniques, ne les reçoit pas. `reviewer` et `auditor` signalent la sur-ingénierie |
 | **impeccable** | Reste global. Ses agents en `inherit` passent sur Opus |
 | **unity-mcp** | Hors harness : les jeux sont des projets web React |
 
