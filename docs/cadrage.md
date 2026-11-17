@@ -475,7 +475,7 @@ Objectif : mettre aux normes un site développé à côté, **sans tout refaire*
 | `release-lib.ps1` | Tague un paquet de `libs` (`node-v1.2.0`…). La CI le publie sur son registre |
 | `audit.ps1` | Versions en retard, état de la CI, version déployée comparée au dernier tag, conventions. Les CVE ne sont pas vérifiées |
 
-**Les wrappers d'infra** (`kubectl`, `argocd`, `tofu`, `ansible`, avec confirmation pour toute action destructive ou d'application) ne sont pas des scripts racine : ils viennent du module `infra` du harness, installé dans `homelab` avant H1.
+**Les actions sur l'infra** (`tofu apply`, `ansible-playbook`, `kubectl apply`, `helm upgrade`, `argocd app sync`…) ne passent pas par des scripts racine. Le module `infra` du harness, installé dans `homelab` avant H1, les encadre par sa règle `infra-guard`. Chaque action est refusée avec un code, et elle passe une seule fois quand l'utilisateur a écrit `ok infra <code>` dans le chat. La règle exige aussi le cluster nommé (`--context`) et un plan OpenTofu enregistré. C'est une garde au mieux : l'agent tourne sous le compte de l'utilisateur.
 
 **Publication de `libs`** : par *trusted publishing* (OIDC depuis GitHub Actions) sur npm et PyPI. Aucun jeton longue durée n'est stocké. Pour nuget.org, la disponibilité de ce mode est à confirmer, sinon on utilise une clé d'API limitée au préfixe des paquets.
 
