@@ -32,6 +32,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# Sinon `tflint --version` demande à GitHub s'il existe une version plus récente, même hors ligne.
+$env:TFLINT_DISABLE_VERSION_CHECK = '1'
 Import-Module (Join-Path $PSScriptRoot 'lib' 'Services.psm1') -Force
 
 # Name : nom affiché · Cmd : exécutable · Min : version minimale · Roles : profils concernés
