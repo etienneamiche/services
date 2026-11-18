@@ -32,8 +32,6 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-# Sinon `tflint --version` demande à GitHub s'il existe une version plus récente, même hors ligne.
-$env:TFLINT_DISABLE_VERSION_CHECK = '1'
 Import-Module (Join-Path $PSScriptRoot 'lib' 'Services.psm1') -Force
 
 # Name : nom affiché · Cmd : exécutable · Min : version minimale · Roles : profils concernés
@@ -55,7 +53,9 @@ $tools = @(
     @{ Name = 'kubectl';   Cmd = 'kubectl';   Min = '1.30';  Roles = 'admin';        Source = 'winget:Kubernetes.kubectl'; Args = @('version', '--client') }
     @{ Name = 'tofu';      Cmd = 'tofu';      Min = '1.8';   Roles = 'admin';        Source = 'winget:OpenTofu.Tofu' }
     # Lint d'infra en fin de tour (module infra du harness) ; ansible-lint vit dans WSL (section 4).
-    @{ Name = 'tflint';    Cmd = 'tflint';    Min = '0.50';  Roles = 'admin';        Source = 'winget:TerraformLinters.tflint' }
+    # Env : variables posées le temps de lire la version. Sans celle-ci, `tflint --version` demande à
+    # GitHub s'il existe une version plus récente, même hors ligne.
+    @{ Name = 'tflint';    Cmd = 'tflint';    Min = '0.50';  Roles = 'admin';        Source = 'winget:TerraformLinters.tflint'; Env = @{ TFLINT_DISABLE_VERSION_CHECK = '1' } }
     @{ Name = 'kubeconform'; Cmd = 'kubeconform'; Min = '0.6'; Roles = 'admin';      Source = 'winget:YannHamon.kubeconform'; Args = @('-v') }
     @{ Name = 'yamllint';  Cmd = 'yamllint';  Min = '1.35';  Roles = 'admin';        Source = 'uvtool:yamllint' }
 )
@@ -68,6 +68,15 @@ $psModules = @(
 $results = [System.Collections.Generic.List[object]]::new()
 function Add-Result([string] $Item, [string] $State, [string] $Detail) {
     $results.Add([pscustomobject]@{ Element = $Item; Etat = $State; Detail = $Detail })
+}
+
+# Version d'un outil, avec ses variables Env posées le temps de l'appel seulement.
+function Get-Version($tool, [string[]] $VersionArgs) {
+    $vars = if ($tool.ContainsKey('Env')) { $tool.Env } else { @{} }
+    $saved = @{}
+    foreach ($k in $vars.Keys) { $saved[$k] = [Environment]::GetEnvironmentVariable($k); [Environment]::SetEnvironmentVariable($k, $vars[$k]) }
+    try { Get-ToolVersion -Command $tool.Cmd -VersionArgs $VersionArgs }
+    finally { foreach ($k in $saved.Keys) { [Environment]::SetEnvironmentVariable($k, $saved[$k]) } }
 }
 
 function Install-Tool($tool) {
@@ -93,14 +102,14 @@ function Install-Tool($tool) {
 # --- 1. Outils ------------------------------------------------------------------
 foreach ($tool in $tools | Where-Object { $_.Roles -contains $Role }) {
     $versionArgs = if ($tool.ContainsKey('Args')) { $tool.Args } else { @('--version') }
-    $current = Get-ToolVersion -Command $tool.Cmd -VersionArgs $versionArgs
+    $current = Get-Version $tool $versionArgs
     $min = [version] $tool.Min
     $isManual = $tool.Source.StartsWith('manual:')
 
     $needsAction = (-not $current) -or ($Upgrade -and $current -lt $min)
     if ($needsAction -and -not $Check -and -not $isManual) {
         Install-Tool $tool
-        $current = Get-ToolVersion -Command $tool.Cmd -VersionArgs $versionArgs
+        $current = Get-Version $tool $versionArgs
     }
 
     if (-not $current) {
