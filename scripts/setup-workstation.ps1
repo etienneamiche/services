@@ -9,7 +9,8 @@
 
 .PARAMETER Role
     dev   : outils de développement, sans accès à l'infra.
-    admin : dev + sops, age, kubectl, tofu, Ansible (WSL) et la clé age du poste.
+    admin : dev + sops, age, kubectl, tofu, les outils du lint d'infra (tflint, kubeconform,
+            yamllint, ansible-lint), Ansible (WSL) et la clé age du poste.
 
 .PARAMETER Check
     N'installe rien : affiche seulement l'état du poste.
@@ -51,6 +52,12 @@ $tools = @(
     @{ Name = 'age';       Cmd = 'age';       Min = '1.2';   Roles = 'admin';        Source = 'winget:FiloSottile.age' }
     @{ Name = 'kubectl';   Cmd = 'kubectl';   Min = '1.30';  Roles = 'admin';        Source = 'winget:Kubernetes.kubectl'; Args = @('version', '--client') }
     @{ Name = 'tofu';      Cmd = 'tofu';      Min = '1.8';   Roles = 'admin';        Source = 'winget:OpenTofu.Tofu' }
+    # Lint d'infra en fin de tour (module infra du harness) ; ansible-lint vit dans WSL (section 4).
+    # Env : variables posées le temps de lire la version. Sans celle-ci, `tflint --version` demande à
+    # GitHub s'il existe une version plus récente, même hors ligne.
+    @{ Name = 'tflint';    Cmd = 'tflint';    Min = '0.50';  Roles = 'admin';        Source = 'winget:TerraformLinters.tflint'; Env = @{ TFLINT_DISABLE_VERSION_CHECK = '1' } }
+    @{ Name = 'kubeconform'; Cmd = 'kubeconform'; Min = '0.6'; Roles = 'admin';      Source = 'winget:YannHamon.kubeconform'; Args = @('-v') }
+    @{ Name = 'yamllint';  Cmd = 'yamllint';  Min = '1.35';  Roles = 'admin';        Source = 'uvtool:yamllint' }
 )
 
 $psModules = @(
@@ -61,6 +68,15 @@ $psModules = @(
 $results = [System.Collections.Generic.List[object]]::new()
 function Add-Result([string] $Item, [string] $State, [string] $Detail) {
     $results.Add([pscustomobject]@{ Element = $Item; Etat = $State; Detail = $Detail })
+}
+
+# Version d'un outil, avec ses variables Env posées le temps de l'appel seulement.
+function Get-Version($tool, [string[]] $VersionArgs) {
+    $vars = if ($tool.ContainsKey('Env')) { $tool.Env } else { @{} }
+    $saved = @{}
+    foreach ($k in $vars.Keys) { $saved[$k] = [Environment]::GetEnvironmentVariable($k); [Environment]::SetEnvironmentVariable($k, $vars[$k]) }
+    try { Get-ToolVersion -Command $tool.Cmd -VersionArgs $VersionArgs }
+    finally { foreach ($k in $saved.Keys) { [Environment]::SetEnvironmentVariable($k, $saved[$k]) } }
 }
 
 function Install-Tool($tool) {
@@ -86,14 +102,14 @@ function Install-Tool($tool) {
 # --- 1. Outils ------------------------------------------------------------------
 foreach ($tool in $tools | Where-Object { $_.Roles -contains $Role }) {
     $versionArgs = if ($tool.ContainsKey('Args')) { $tool.Args } else { @('--version') }
-    $current = Get-ToolVersion -Command $tool.Cmd -VersionArgs $versionArgs
+    $current = Get-Version $tool $versionArgs
     $min = [version] $tool.Min
     $isManual = $tool.Source.StartsWith('manual:')
 
     $needsAction = (-not $current) -or ($Upgrade -and $current -lt $min)
     if ($needsAction -and -not $Check -and -not $isManual) {
         Install-Tool $tool
-        $current = Get-ToolVersion -Command $tool.Cmd -VersionArgs $versionArgs
+        $current = Get-Version $tool $versionArgs
     }
 
     if (-not $current) {
@@ -195,16 +211,19 @@ if ($Role -eq 'admin') {
         Add-Result 'clé age' 'FAIL' "absente : $ageKey"
     }
 
-    # Ansible ne tourne pas sous Windows : il vit dans WSL Ubuntu, installé par uv (sans sudo).
+    # Ansible ne tourne pas sous Windows : il vit dans WSL Ubuntu, installé par uv (sans sudo),
+    # avec ansible-lint pour le lint en fin de tour.
     # --exec : sinon wsl.exe interprète lui-même les `$` de la commande.
     $env:WSL_UTF8 = '1'
-    $ansible = wsl -d Ubuntu --exec bash -lc 'command -v ansible-playbook' 2>$null
-    if (-not $ansible -and -not $Check -and $PSCmdlet.ShouldProcess('WSL Ubuntu', 'uv tool install ansible-core')) {
-        wsl -d Ubuntu --exec bash -lc 'command -v uv >/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh; "$HOME/.local/bin/uv" tool install ansible-core' | Out-Host
-        $ansible = wsl -d Ubuntu --exec bash -lc 'command -v ansible-playbook' 2>$null
+    foreach ($wslTool in @{ Name = 'ansible'; Cmd = 'ansible-playbook'; Package = 'ansible-core' }, @{ Name = 'ansible-lint'; Cmd = 'ansible-lint'; Package = 'ansible-lint' }) {
+        $found = wsl -d Ubuntu --exec bash -lc "command -v $($wslTool.Cmd)" 2>$null
+        if (-not $found -and -not $Check -and $PSCmdlet.ShouldProcess('WSL Ubuntu', "uv tool install $($wslTool.Package)")) {
+            wsl -d Ubuntu --exec bash -lc "command -v uv >/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh; `"`$HOME/.local/bin/uv`" tool install $($wslTool.Package)" | Out-Host
+            $found = wsl -d Ubuntu --exec bash -lc "command -v $($wslTool.Cmd)" 2>$null
+        }
+        if ($LASTEXITCODE -eq 0 -and $found) { Add-Result "$($wslTool.Name) (WSL)" 'OK' $found }
+        else { Add-Result "$($wslTool.Name) (WSL)" 'FAIL' 'absent dans WSL Ubuntu (voir STARTUP.md §Ansible)' }
     }
-    if ($LASTEXITCODE -eq 0 -and $ansible) { Add-Result 'ansible (WSL)' 'OK' $ansible }
-    else { Add-Result 'ansible (WSL)' 'FAIL' 'absent dans WSL Ubuntu (voir STARTUP.md §Ansible)' }
 }
 
 # --- Bilan ------------------------------------------------------------------------

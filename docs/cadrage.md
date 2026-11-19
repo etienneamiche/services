@@ -462,7 +462,7 @@ Objectif : mettre aux normes un site développé à côté, **sans tout refaire*
 
 | Script | Rôle |
 |---|---|
-| `setup-workstation.ps1` | Idempotent, et suit `STARTUP.md`. Profil `dev` : outils de développement, sans accès à l'infra. Profil `admin` : en plus `sops`, `age`, `kubectl`, `tofu`, et une clé age **propre au poste** |
+| `setup-workstation.ps1` | Idempotent, et suit `STARTUP.md`. Profil `dev` : outils de développement, sans accès à l'infra. Profil `admin` : en plus `sops`, `age`, `kubectl`, `tofu`, les outils du lint d'infra (`tflint`, `kubeconform`, `yamllint`, et `ansible-lint` dans WSL à côté d'Ansible), et une clé age **propre au poste** |
 | `add-workstation-key.ps1` | Ajoute la clé publique d'un poste dans `homelab/.sops.yaml`, puis lance `sops updatekeys`. Il y a ainsi plusieurs clés, une par poste |
 | `pull-all.ps1` | Clone les dépôts manquants et fait un `pull --ff-only` partout. Signale les dépôts modifiés ou en avance |
 | `github-setup.ps1` | Idempotent. Pose les labels communs sur chaque dépôt actif et le ruleset de `main` sur `harness`, les templates et `libs`, et crée le GitHub Project unique avec ses colonnes (§7) |
@@ -550,7 +550,7 @@ Une seule commande répond à « est-ce que tout est en place et fonctionne ? »
 
 | Niveau | Vérifications |
 |---|---|
-| **Poste** | Outils présents et à la version minimale : `pwsh` 7, `git`, `gh`, `uv`, `copier`, `sops`, `age`, `gitleaks`, `codegraph`, `docker`, `dotnet`, `node`, `kubectl`, `tofu` et Claude Code. Authentification `gh` avec les bons droits (`repo`, `project`), en SSH. **CLI `claude` connecté** (sa connexion est distincte de l'app desktop et peut expirer). Clé age présente et déclarée dans `homelab/.sops.yaml` |
+| **Poste** | Outils présents et à la version minimale : `pwsh` 7, `git`, `gh`, `uv`, `copier`, `sops`, `age`, `gitleaks`, `codegraph`, `docker`, `dotnet`, `node`, `kubectl`, `tofu`, les outils du lint d'infra (`tflint`, `kubeconform`, `yamllint`, `ansible-lint` dans WSL) et Claude Code. Authentification `gh` avec les bons droits (`repo`, `project`), en SSH. **CLI `claude` connecté** (sa connexion est distincte de l'app desktop et peut expirer). Clé age présente et déclarée dans `homelab/.sops.yaml` |
 | **Racine `services`** | La liste blanche du `.gitignore` est intacte et aucun sous-dépôt n'est suivi. `repos.yaml` est cohérent avec GitHub : dépôts existants, visibilité attendue. Tous les dépôts sont clonés, propres et à jour. Le catalogue est récent. Les scripts racine sont à la dernière version du harness (`kind: root`) |
 | **Chaque dépôt** | Version du harness et des templates comparée aux derniers tags. Fichiers du harness intacts (`manifest.json`). Hooks branchés dans `settings.json`, `core.hooksPath` en place. **Plugins de `enabledPlugins` réellement installés** (`claude plugin install --scope project`). `claudeMdExcludes` présent. Index codegraph présent et récent. Motifs de secrets présents dans `.gitignore`. Workflows CI pointant sur la même version du harness. Renovate configuré. Labels présents, dépôt relié au Project |
 | **Autotests (`-Deep`)** | Une suite **Pester** livrée avec le harness envoie des entrées JSON simulées à chaque dispatcher et vérifie la décision : `general-purpose` refusé, commit depuis la session principale refusé, lecture de `.env` refusée, `--no-verify` refusé, faux secret bloqué par gitleaks… Les scripts sont lancés en `-WhatIf` |

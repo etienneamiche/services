@@ -127,7 +127,7 @@ Le script clone ce qui manque et met à jour le reste par `pull --ff-only`. Il n
 Ansible ne tourne pas nativement sous Windows : il tourne dans **WSL Ubuntu**.
 
 - Il faut une distribution Ubuntu dans WSL : `wsl --install -d Ubuntu` si elle n'existe pas.
-- Le reste est fait par `setup-workstation.ps1 -Role admin`, qui installe `uv` puis `ansible-core` dans Ubuntu, **sans `sudo`**.
+- Le reste est fait par `setup-workstation.ps1 -Role admin`, qui installe `uv` puis `ansible-core` et `ansible-lint` dans Ubuntu, **sans `sudo`**. `ansible-lint` sert au lint de fin de tour du module `infra` du harness, comme `tflint`, `kubeconform` et `yamllint`, installés côté Windows.
 
 ## 9. Vérification finale
 
