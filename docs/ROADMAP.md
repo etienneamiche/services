@@ -338,7 +338,7 @@ L'infra a sa propre roadmap, dans `homelab/docs/03-roadmap.md` (dépôt privé).
 | Phase | Thème | Dépend de | État |
 |---|---|---|---|
 | H0 | Hyperviseur `pve-01` | — | ✅ Trois points reportés : les relevés de réception (avant la fin du droit de retour), la première sauvegarde réelle (avec le premier invité, en H1) et le test du runbook sur `pve-99` |
-| H1 | Plateforme : clusters k3s `home` et `vps`, GitOps, première app exposée | H0, phase 4, harness et module `infra` dans `homelab` | À venir |
+| H1 | Plateforme : clusters k3s `home` et `vps`, GitOps, première app exposée | H0, phase 4, module `infra` installé dans `homelab` | À venir |
 | H2 | Données et médias | H1 | — |
 | H3 | Réseau, sécurité et supervision | H2 | — |
 | H4 | IA locale | H1 | — |
@@ -348,7 +348,7 @@ L'infra a sa propre roadmap, dans `homelab/docs/03-roadmap.md` (dépôt privé).
 
 **Avant H1, dans `homelab` :**
 - le harness, de type `infra`, installé comme dans les autres dépôts. `homelab` est privé et sans protection de branche gratuite : `git-guard` y protège `main`, chaque PR reçoit une revue `auditor`, et **aucun agent ne fusionne** (`merge-pr.ps1` refuse les PR de `homelab`). C'est toi qui fusionnes, à la main ;
-- un **module `infra`** dans le harness : conventions et lint pour Ansible, OpenTofu, les manifestes Kubernetes et SOPS, et la règle `infra-guard`, qui demande l'accord de l'utilisateur, par un code tapé dans le chat, avant une action (`tofu apply`, `ansible-playbook`, `kubectl apply` et `delete`, `helm upgrade`, `argocd app sync`). C'est une garde au mieux, que des détours déclarés contournent (alias, action hors des programmes d'infra par `ssh`, `scp` ou `rsync`).
+- le **module `infra`** du harness (depuis v0.4.0), à installer dans `homelab` par `copier update` : conventions et lint pour Ansible, OpenTofu, les manifestes Kubernetes et SOPS, et la règle `infra-guard`, qui demande l'accord de l'utilisateur, par un code tapé dans le chat, avant une action (`tofu apply`, `ansible-playbook`, `kubectl apply` et `delete`, `helm upgrade`, `argocd app sync`). C'est une garde au mieux, que des détours déclarés contournent (alias, action hors des programmes d'infra par `ssh`, `scp` ou `rsync`).
 
 **Ce que H1 ne livre pas**, parce que `services` le livre : les templates d'application (phases 5 à 7), la CI des apps, GitVersion, GHCR et Renovate (phase 10), le déploiement d'une app créée par `/start-project` et `services-map` (phase 11). La première app exposée en H1 est une app existante, packagée en Helm.
 
