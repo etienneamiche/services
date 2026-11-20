@@ -580,12 +580,12 @@ Voir [`ROADMAP.md`](ROADMAP.md) : 12 phases, chacune avec ses livrables, ses tes
 
 ## 21. Conventions de code (phase 3)
 
-**La source de vérité est le harness**, pas ce document : `.harness/agents/conventions.md` (commun) et `.harness/modules/<stack>/conventions.md` ([dépôt `harness`](https://github.com/etienneamiche/harness), v0.2.0). Ce qui suit résume les décisions qui touchent le reste de l'écosystème.
+**La source de vérité est le harness**, pas ce document : `.harness/agents/conventions.md` (commun) et `.harness/modules/<stack>/conventions.md` ([dépôt `harness`](https://github.com/etienneamiche/harness)). Ce qui suit résume les décisions qui touchent le reste de l'écosystème.
 
 | Sujet | Décision |
 |---|---|
 | Langues | Code et Git (commits, CHANGELOG) en anglais ; docs, issues, PR et interfaces en français. i18n dès le départ |
-| Modules du harness | `react`, `dotnet`, `python`, `game` : un projet reçoit ceux de ses stacks |
+| Modules du harness | `react`, `dotnet`, `python`, `game` : un projet reçoit ceux de ses stacks. `infra` est réservé au dépôt d'infrastructure, `homelab` |
 | Front | Options `api` (`openapi` · `none`), `auth` (`none` · `forward-auth` · `oidc`), `google`, `realtime`. Le front n'appelle jamais une API tierce : il passe par son backend |
 | Backend .NET | Controller → Service → Dal / Clients, en projets séparés. **Database-first** : schéma en SQL, migrations **DbUp** (`NNNN.<issue>.<slug>.sql`), code EF généré par l'agent `db-ops` |
 | Migrations en prod | Une image de migration par app, lancée dans le cluster par un Job ArgoCD *PreSync*. La CI n'accède jamais à la base |
