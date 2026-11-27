@@ -80,7 +80,12 @@ for ($i = 0; $i -lt $lines.Count; $i++) {
 }
 if (-not $blocks.Count) { throw ".sops.yaml n'a pas la structure attendue (key_groups → age : liste de clés)." }
 
-$configChanged = $false
+# Secrets à rechiffrer : ceux qui ne sont pas encore à jour, pour qu'une relance après un échec
+# termine le travail au lieu de répondre « rien à faire ».
+$secrets = @(Get-ChildItem (Join-Path $homelab 'secrets') -Recurse -Include *.sops.yaml, *.sops.yml -ErrorAction SilentlyContinue)
+$recipients = { param([string] $Path) @([regex]::Matches((Get-Content $Path -Raw), 'recipient:\s*(age1[0-9a-z]{58})') | ForEach-Object { $_.Groups[1].Value }) }
+$pending = @($secrets | Where-Object { $has = (& $recipients $_.FullName) -contains $PublicKey; if ($Remove) { $has } else { -not $has } })
+
 if ($Remove) {
     if (@($lines | Where-Object { $_ -match $escaped -and (& $isHomelab $_) })) { throw 'Refus : la clé homelab des clusters ne se retire pas par ce script.' }
     # Chaque règle doit garder au moins une clé de poste, sinon plus aucun poste ne déchiffre ses fichiers.
@@ -88,42 +93,43 @@ if ($Remove) {
         $left = @($block | Where-Object { $lines[$_] -notmatch $escaped -and -not (& $isHomelab $lines[$_]) })
         if (-not $left) { throw 'Refus : une règle de .sops.yaml n''aurait plus aucune clé de poste, plus aucun poste ne pourrait déchiffrer ses fichiers.' }
     }
+    # Et chaque secret aussi : un fichier pas encore rechiffré pour un poste plus récent ne garderait
+    # que la clé homelab. On le vérifie avant de toucher à quoi que ce soit.
+    $homelabKeys = @($lines | Where-Object { & $isHomelab $_ } | ForEach-Object { if ($_ -match '(age1[0-9a-z]{58})') { $Matches[1] } })
+    $orphans = @($pending | Where-Object { -not @(& $recipients $_.FullName | Where-Object { $_ -ne $PublicKey -and $_ -notin $homelabKeys }) })
+    if ($orphans) { throw "Refus : sans cette clé, aucun poste ne déchiffrerait plus $(($orphans | ForEach-Object Name) -join ', '). Les rechiffrer d'abord pour un autre poste (relancer l'ajout de ce poste par ce script, qui rechiffre les secrets qui ne l'ont pas), puis recommencer." }
     # Toutes les occurrences, dans toutes les règles.
     $toRemove = @(0..($lines.Count - 1) | Where-Object { $lines[$_] -match "^\s+-\s+$escaped" })
-    if ($toRemove -and $PSCmdlet.ShouldProcess($PublicKey, "retrait de .sops.yaml ($($toRemove.Count) ligne(s))")) {
-        foreach ($i in ($toRemove | Sort-Object -Descending)) { $lines.RemoveAt($i) }
-        $configChanged = $true
-    }
+    $configToChange = $toRemove.Count -gt 0
 }
 else {
-    # La clé va dans chaque règle qui ne l'a pas : de la dernière à la première, pour garder les indices.
     $missing = @($blocks | Where-Object { -not @($_ | Where-Object { $lines[$_] -match $escaped }) })
-    if ($missing -and $PSCmdlet.ShouldProcess($PublicKey, "ajout dans .sops.yaml ($($missing.Count) règle(s))")) {
-        foreach ($block in ($missing | Sort-Object { $_[-1] } -Descending)) {
-            $indent = $lines[$block[-1]] -replace '^(\s+)-.*', '$1'
-            $lines.Insert($block[-1] + 1, "$indent- $PublicKey # $Name")
-        }
-        $configChanged = $true
-    }
+    $configToChange = $missing.Count -gt 0
 }
-if ($configChanged) { Set-Content $sopsConfig $lines -Encoding utf8NoBOM }
 
-# Rechiffrement, fichier par fichier, de ceux qui ne sont pas encore à jour : une relance après un
-# échec termine le travail au lieu de répondre « rien à faire ».
-# - Ajout : `updatekeys` aligne les destinataires du fichier sur .sops.yaml.
-# - Retrait : `rotate --rm-age` retire le destinataire ET génère une nouvelle clé de données, en une
-#   seule écriture : sans nouvelle clé, un poste retiré qui a déjà déchiffré un secret lirait les
-#   versions suivantes.
-$secrets = @(Get-ChildItem (Join-Path $homelab 'secrets') -Recurse -Include *.sops.yaml, *.sops.yml -ErrorAction SilentlyContinue)
-$recipients = { param([string] $Path) [regex]::Matches((Get-Content $Path -Raw), 'recipient:\s*(age1[0-9a-z]{58})') | ForEach-Object { $_.Groups[1].Value } }
-$pending = @($secrets | Where-Object { $has = @(& $recipients $_.FullName) -contains $PublicKey; if ($Remove) { $has } else { -not $has } })
-
-if (-not $configChanged -and -not $pending) {
+if (-not $configToChange -and -not $pending) {
     Write-Host "$(if ($Remove) { 'Clé absente' } else { 'Clé déjà présente' }) de .sops.yaml et des $($secrets.Count) secret(s) : rien à faire."
     return
 }
 
-# sops cherche .sops.yaml à partir du dossier courant, pas de celui du fichier : on se place dans homelab.
+if ($Remove -and $configToChange -and $PSCmdlet.ShouldProcess($PublicKey, "retrait de .sops.yaml ($($toRemove.Count) ligne(s))")) {
+    foreach ($i in @($toRemove | Sort-Object -Descending)) { $lines.RemoveAt($i) }
+    Set-Content $sopsConfig $lines -Encoding utf8NoBOM
+}
+if (-not $Remove -and $configToChange -and $PSCmdlet.ShouldProcess($PublicKey, "ajout dans .sops.yaml ($($missing.Count) règle(s))")) {
+    # La clé va dans chaque règle qui ne l'a pas : de la dernière à la première, pour garder les indices.
+    # @() : avec une seule règle, le tri rendrait la liste d'indices elle-même, et la boucle la déroulerait.
+    foreach ($block in @($missing | Sort-Object { $_[-1] } -Descending)) {
+        $indent = $lines[$block[-1]] -replace '^(\s+)-.*', '$1'
+        $lines.Insert($block[-1] + 1, "$indent- $PublicKey # $Name")
+    }
+    Set-Content $sopsConfig $lines -Encoding utf8NoBOM
+}
+
+# - Ajout : `updatekeys` aligne les destinataires du fichier sur .sops.yaml.
+# - Retrait : `rotate --rm-age` retire le destinataire ET génère une nouvelle clé de données, en une
+#   seule écriture : sans nouvelle clé, un poste retiré qui a déjà déchiffré un secret lirait les
+#   versions suivantes.# sops cherche .sops.yaml à partir du dossier courant, pas de celui du fichier : on se place dans homelab.
 $done = 0
 Push-Location $homelab
 try {
