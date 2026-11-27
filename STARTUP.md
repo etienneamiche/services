@@ -118,8 +118,8 @@ Le script clone ce qui manque et met à jour le reste par `pull --ff-only`. Il n
   ```powershell
   ./scripts/add-workstation-key.ps1 -PublicKey age1… -Name portable
   ```
-  Le script ajoute la clé à `homelab/.sops.yaml`, rechiffre chaque secret pour le nouvel ensemble de clés, puis il reste à commiter le résultat dans `homelab` par une PR. Au tout premier usage, il crée `.sops.yaml`.
-- **Pour retirer un poste** perdu ou abandonné : même commande, avec `-Remove`. Le script retire la clé, puis **change la clé de données** de chaque secret (`sops rotate`) : un poste retiré qui avait déjà déchiffré un secret ne peut pas lire les versions suivantes. Il refuse de retirer la dernière clé.
+  Le script ajoute la clé à chaque règle de `homelab/.sops.yaml`, rechiffre chaque secret pour le nouvel ensemble de clés, puis il reste à commiter le résultat dans `homelab` par une PR. Au tout premier usage, il crée `.sops.yaml`, qui chiffre les secrets en entier : ajoute-y alors à la main la clé publique `homelab` des clusters (`- age1… # homelab`, doc 07, §9 de `homelab`).
+- **Pour retirer un poste** perdu ou abandonné : même commande, avec `-Remove`. Le script retire la clé, puis **change la clé de données** de chaque secret (`sops rotate`) : un poste retiré qui avait déjà déchiffré un secret ne peut pas lire les versions suivantes. Il refuse de retirer la clé `homelab` des clusters, et la dernière clé de poste d'une règle : sans elle, plus aucun poste ne déchiffrerait. Si sops échoue en route, le script le dit : relancer la même commande termine le rechiffrement.
 - L'historique Git garde les anciennes versions chiffrées. Si un poste est compromis, il faut aussi **changer les secrets eux-mêmes**.
 
 ### Ansible
