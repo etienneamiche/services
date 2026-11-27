@@ -95,8 +95,10 @@ if ($Remove) {
     }
     # Et chaque secret aussi : un fichier pas encore rechiffré pour un poste plus récent ne garderait
     # que la clé homelab. On le vérifie avant de toucher à quoi que ce soit.
-    $homelabKeys = @($lines | Where-Object { & $isHomelab $_ } | ForEach-Object { if ($_ -match '(age1[0-9a-z]{58})') { $Matches[1] } })
-    $orphans = @($pending | Where-Object { -not @(& $recipients $_.FullName | Where-Object { $_ -ne $PublicKey -and $_ -notin $homelabKeys }) })
+    # Ne compte que les postes encore inscrits dans .sops.yaml : une clé déjà retirée, restée dans un
+    # secret après un retrait interrompu, ne déchiffrera plus rien après la relance.
+    $otherWorkstations = @($lines | Where-Object { $_ -match '^\s+-\s+age1[0-9a-z]{58}' -and -not (& $isHomelab $_) } | ForEach-Object { if ($_ -match '(age1[0-9a-z]{58})') { $Matches[1] } } | Where-Object { $_ -ne $PublicKey })
+    $orphans = @($pending | Where-Object { -not @(& $recipients $_.FullName | Where-Object { $_ -in $otherWorkstations }) })
     if ($orphans) { throw "Refus : sans cette clé, aucun poste ne déchiffrerait plus $(($orphans | ForEach-Object Name) -join ', '). Les rechiffrer d'abord pour un autre poste (relancer l'ajout de ce poste par ce script, qui rechiffre les secrets qui ne l'ont pas), puis recommencer." }
     # Toutes les occurrences, dans toutes les règles.
     $toRemove = @(0..($lines.Count - 1) | Where-Object { $lines[$_] -match "^\s+-\s+$escaped" })
@@ -129,7 +131,9 @@ if (-not $Remove -and $configToChange -and $PSCmdlet.ShouldProcess($PublicKey, "
 # - Ajout : `updatekeys` aligne les destinataires du fichier sur .sops.yaml.
 # - Retrait : `rotate --rm-age` retire le destinataire ET génère une nouvelle clé de données, en une
 #   seule écriture : sans nouvelle clé, un poste retiré qui a déjà déchiffré un secret lirait les
-#   versions suivantes.# sops cherche .sops.yaml à partir du dossier courant, pas de celui du fichier : on se place dans homelab.
+#   versions suivantes.
+
+# sops cherche .sops.yaml à partir du dossier courant, pas de celui du fichier : on se place dans homelab.
 $done = 0
 Push-Location $homelab
 try {
