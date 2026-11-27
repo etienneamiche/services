@@ -86,6 +86,23 @@ $secrets = @(Get-ChildItem (Join-Path $homelab 'secrets') -Recurse -Include *.so
 $recipients = { param([string] $Path) @([regex]::Matches((Get-Content $Path -Raw), 'recipient:\s*(age1[0-9a-z]{58})') | ForEach-Object { $_.Groups[1].Value }) }
 $pending = @($secrets | Where-Object { $has = (& $recipients $_.FullName) -contains $PublicKey; if ($Remove) { $has } else { -not $has } })
 
+# Retrait inachevé : une clé qui n'est plus dans .sops.yaml mais reste dans un secret. Tant qu'il
+# n'est pas terminé (rotate, nouvelle clé de données), tout autre ajout ou retrait est refusé :
+# un `updatekeys` retirerait ce destinataire sans changer la clé de données, et la relance du
+# retrait répondrait ensuite « rien à faire » alors que la révocation n'a pas eu lieu.
+$listed = @($lines | ForEach-Object { if ($_ -match '^\s+-\s+(age1[0-9a-z]{58})') { $Matches[1] } })
+$stale = [ordered]@{}
+foreach ($file in $secrets) {
+    foreach ($r in (& $recipients $file.FullName)) {
+        if ($r -in $listed -or ($Remove -and $r -eq $PublicKey)) { continue }
+        $stale[$r] = @($stale[$r]) + $file.Name | Where-Object { $_ }
+    }
+}
+if ($stale.Count) {
+    $detail = ($stale.Keys | ForEach-Object { "$_ (dans $(($stale[$_] | Sort-Object -Unique) -join ', '))" }) -join ' ; '
+    throw "Refus : un retrait de poste est inachevé. Clé absente de .sops.yaml mais encore dans des secrets : $detail. Terminer d'abord ce retrait : ./scripts/add-workstation-key.ps1 -PublicKey <cette clé> -Name <poste> -Remove."
+}
+
 if ($Remove) {
     if (@($lines | Where-Object { $_ -match $escaped -and (& $isHomelab $_) })) { throw 'Refus : la clé homelab des clusters ne se retire pas par ce script.' }
     # Chaque règle doit garder au moins une clé de poste, sinon plus aucun poste ne déchiffre ses fichiers.
